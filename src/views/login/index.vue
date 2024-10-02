@@ -33,7 +33,7 @@ dataThemeChange(overallStyle.value);
 const { title } = useNav();
 
 const ruleForm = reactive({
-  username: "202118100313",
+  username: "admin",
   password: "Lvu123123"
 });
 

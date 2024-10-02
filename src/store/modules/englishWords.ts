@@ -25,7 +25,7 @@ export const useEnglishWordsStore = defineStore("English", {
       http
         .request(
           "get",
-          baseUrlApi("englishWord/getAll?pageNumber=" + pageNumber)
+          baseUrlApi("/englishWord/getAll?pageNumber=" + pageNumber)
         )
         .then((data: responseWords) => {
           this.data = data.data;
@@ -34,7 +34,7 @@ export const useEnglishWordsStore = defineStore("English", {
     },
     getBySelect(request: requestWords, pageNumber: number) {
       var url =
-        "englishWord/getBySelect?pageNumber=" +
+        "/englishWord/getBySelect?pageNumber=" +
         pageNumber +
         "&lowBorder=" +
         request.lowBorder +
