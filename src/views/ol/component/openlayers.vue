@@ -15,6 +15,8 @@ import { baseUrlApi } from "@/api/utils";
 import { mapEntityResponed } from "@/store/modules/mapEntity";
 import { Style, Fill, Stroke, Circle } from "ol/style";
 import Feature from "ol/Feature";
+//可以在地图上显示图表
+import EChartsLayer from "ol-echarts";
 
 import { buffer } from "@turf/buffer";
 
