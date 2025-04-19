@@ -67,7 +67,6 @@
     "mitt": "^3.0.1",
     "nprogress": "^0.2.0",
     "ol": "^10.1.0",
-    "ol-echarts": "^4.0.1",
     "path": "^0.12.7",
     "pinia": "^2.1.7",
     "pinyin-pro": "^3.23.0",
@@ -161,6 +160,12 @@
       "allowedVersions": {
         "eslint": "9"
       }
-    }
+    },
+    "ignoredBuiltDependencies": [
+      "nodejieba"
+    ],
+    "onlyBuiltDependencies": [
+      "nodejieba"
+    ]
   }
 }

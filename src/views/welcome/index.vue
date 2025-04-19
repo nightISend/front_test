@@ -2,8 +2,9 @@
 defineOptions({
   name: "Welcome"
 });
+import woldcloud from "@/views/wordcloud/index.vue";
 </script>
 
 <template>
-  <h1>Pure-Admin-Thin（非国际化版本）</h1>
+  <woldcloud />
 </template>
