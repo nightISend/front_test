@@ -49,6 +49,8 @@ import {
   KmlDataSource
 } from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
+import { drawWater, floodAnalysis } from "./water";
+import { click_draw_polygon } from "./drawPolygon";
 
 Ion.defaultAccessToken =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJkNWZkODE2Ny02ZmEzLTQ2NzYtOTI3Ny03NjU4ZGQ0OGNjZTIiLCJpZCI6MjQxOTQ5LCJpYXQiOjE3MjY0OTMxMjZ9.VczJoKbH4q7J4qNvR8nKzB-ea4wAFXIerWmr9dJYbgY";
@@ -129,7 +131,9 @@ function loadMap() {
   var ifAddLayer = true;
   document.getElementById("addLayer").addEventListener("click", function () {
     if (ifAddLayer == true) {
-      viewer.imageryLayers.addImageryProvider(tianDiTuSpatial);
+      let imagery = viewer.imageryLayers.addImageryProvider(tianDiTuSpatial);
+      imagery.hue = 3; // 图层色调
+      imagery.contrast = -1.2; // 图层对比度
       /* 设置地图透明度 */
       viewer.imageryLayers.addImageryProvider(tianDiTuVector).alpha = 0.5;
       console.log("添加地图");
@@ -331,15 +335,6 @@ function loadMap() {
       }
     }
   });
-  let fabricMaterial1 = new Material({
-    strict: false,
-    fabric: {
-      type: "Color",
-      uniforms: {},
-      /* 可以在source里直接写着色器，webgl内容写不来 */
-      source: ``
-    }
-  });
   /* 4.设置外观（appearance）去文档里找带appearance的方法都能用，使用的外观要与几何体的着色方法vertexFormat一致  */
   /* 以实例的颜色去着色 */
   let appearance = new PerInstanceColorAppearance({
@@ -348,26 +343,27 @@ function loadMap() {
   /* 椭圆体表面外观,假定几何体与地表平行，加快计算 */
   var appearance1 = new EllipsoidSurfaceAppearance({
     aboveGround: true,
-    material: imageMaterial
+    material: colorMaterial
     /* 手写着色器就不用写材质 */
     // fragmentShaderSource: ``
   });
   /* 5.图元，可以有多个几何体如geometryInstances: [instance, instance1],效率会比entity高 */
   let rectPrimivite = new Primitive({
     geometryInstances: instance,
-    /* 材质 */
-    appearance: appearance1
+    /* 材质,用PerInstanceColorAppearance做材质才能改颜色 */
+    appearance: appearance
   });
   /* 6.添加图元 */
   viewer.scene.primitives.add(rectPrimivite);
   /* 颜色变换，setTimeout说在一定时间后触发(1次)，setInterval是间隔触发（多次） */
   setTimeout(() => {
-    let attributes = rectPrimivite.getGeometryInstanceAttributes("blue");
+    let attributes = rectPrimivite.getGeometryInstanceAttributes("red");
     attributes.color = ColorGeometryInstanceAttribute.toValue(
       // Color.RED.withAlpha(0.5)
       // 随机变化RGB
       Color.fromRandom({ red: 0.5, green: 0.1 })
     );
+    console.log("时间颜色变化");
   }, 8000);
 
   //添加移动动画效果
@@ -484,12 +480,18 @@ function loadMap() {
     通过pick.id._properties.info._value获取设置的属性
     */
     console.log(pick);
-    let attributes = rectPrimivite.getGeometryInstanceAttributes(pick.id);
-    attributes.color = ColorGeometryInstanceAttribute.toValue(
-      // Color.RED.withAlpha(0.5)
-      // 随机变化RGB
-      Color.fromRandom({ red: 0.5, green: 0.1 })
-    );
+    if (pick != undefined) {
+      try {
+        let attributes = rectPrimivite.getGeometryInstanceAttributes(pick.id);
+        attributes.color = ColorGeometryInstanceAttribute.toValue(
+          // Color.RED.withAlpha(0.5)
+          // 随机变化RGB
+          Color.fromRandom({ red: 0.5, green: 0.1 })
+        );
+      } catch {
+        console.log("点击对象不是entity");
+      }
+    }
   }, ScreenSpaceEventType.LEFT_CLICK);
 
   /* 加载geojson数据,前地址，后样式 */
@@ -506,6 +508,12 @@ function loadMap() {
   kmlData.then((data: any) => {
     viewer.dataSources.add(data);
   });
+
+  drawWater(viewer);
+
+  const positions = [75, 20, 75, 30, 85, 30, 85, 20];
+  floodAnalysis(viewer, positions, 40000, 20000);
+  click_draw_polygon(viewer);
 }
 </script>
 
@@ -514,6 +522,7 @@ function loadMap() {
     <el-button id="addLayer">添加图层</el-button>
     <el-button id="addAnimation">添加动画</el-button>
     <el-button id="flyto">移动到杭州</el-button>
+    <el-button id="draw">绘制多边形</el-button>
     <div id="cesiumContainer" style="width: 100%; height: 100%" />
   </div>
 </template>
