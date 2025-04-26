@@ -26,8 +26,6 @@ import {
   PolylineGlowMaterialProperty,
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
-  SkyBox,
-  CesiumTerrainProvider,
   Transforms,
   HeadingPitchRoll,
   LabelStyle,
@@ -35,22 +33,16 @@ import {
   VerticalOrigin,
   HorizontalOrigin,
   DistanceDisplayCondition,
-  GeometryInstance,
-  RectangleGeometry,
   Rectangle,
-  PerInstanceColorAppearance,
   ColorGeometryInstanceAttribute,
-  Primitive,
-  defined,
   ColorMaterialProperty,
-  Material,
-  EllipsoidSurfaceAppearance,
-  GeoJsonDataSource,
-  KmlDataSource
+  Event
 } from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import { drawWater, floodAnalysis } from "./water";
 import { click_draw_polygon } from "./drawPolygon";
+import { createPrimitive } from "./craeatePrimitive";
+import { addGeojson } from "./readData";
 
 Ion.defaultAccessToken =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJkNWZkODE2Ny02ZmEzLTQ2NzYtOTI3Ny03NjU4ZGQ0OGNjZTIiLCJpZCI6MjQxOTQ5LCJpYXQiOjE3MjY0OTMxMjZ9.VczJoKbH4q7J4qNvR8nKzB-ea4wAFXIerWmr9dJYbgY";
@@ -131,7 +123,10 @@ function loadMap() {
   var ifAddLayer = true;
   document.getElementById("addLayer").addEventListener("click", function () {
     if (ifAddLayer == true) {
-      let imagery = viewer.imageryLayers.addImageryProvider(tianDiTuSpatial);
+      /* addImageryProvider会返回ImageryLayer对象，可以调整ImageryLayer的样式 */
+      let imagery = viewer.imageryLayers.addImageryProvider(
+        tianDiTuVectorAnnotation
+      );
       imagery.hue = 3; // 图层色调
       imagery.contrast = -1.2; // 图层对比度
       /* 设置地图透明度 */
@@ -293,79 +288,6 @@ function loadMap() {
     }
   });
 
-  /* 使用primivite创建几何实例 */
-  /* 1.创建几何体 */
-  let rectGeometry = new RectangleGeometry({
-    /* 矩形对角坐标 */
-    rectangle: Rectangle.fromDegrees(115, 20, 135, 30),
-    /* 模型离地高度 */
-    height: 0,
-    /* 挤出高度，就是模型的高 */
-    extrudedHeight: 20000,
-    /* 顶点着色，webgl内容,着色方法要与使用的外观一致 */
-    // vertexFormat: PerInstanceColorAppearance.VERTEX_FORMAT
-    vertexFormat: EllipsoidSurfaceAppearance.VERTEX_FORMAT
-  });
-  /* 2.实例化,允许一个几何对象出现在不同位置带有不同属性 */
-  let instance = new GeometryInstance({
-    id: "red",
-    geometry: rectGeometry,
-    attributes: {
-      color: ColorGeometryInstanceAttribute.fromColor(Color.RED.withAlpha(0.5))
-    }
-  });
-  /* 3.设置材质 */
-  /* 在文档里看Material，各种方法同理 */
-  var colorMaterial = Material.fromType("Color", {
-    color: Color.BLUE.withAlpha(0.5)
-  });
-  var imageMaterial = Material.fromType("Image", {
-    image: "src/assets/map/fire_small.png",
-    /* 用几张（x*y）图显示 */
-    repeat: {
-      x: 2,
-      y: 2
-    }
-  });
-  let fabricMaterial = new Material({
-    fabric: {
-      type: "Color",
-      uniforms: {
-        color: new Color(1.0, 1.0, 0.0, 1.0)
-      }
-    }
-  });
-  /* 4.设置外观（appearance）去文档里找带appearance的方法都能用，使用的外观要与几何体的着色方法vertexFormat一致  */
-  /* 以实例的颜色去着色 */
-  let appearance = new PerInstanceColorAppearance({
-    flat: true
-  });
-  /* 椭圆体表面外观,假定几何体与地表平行，加快计算 */
-  var appearance1 = new EllipsoidSurfaceAppearance({
-    aboveGround: true,
-    material: colorMaterial
-    /* 手写着色器就不用写材质 */
-    // fragmentShaderSource: ``
-  });
-  /* 5.图元，可以有多个几何体如geometryInstances: [instance, instance1],效率会比entity高 */
-  let rectPrimivite = new Primitive({
-    geometryInstances: instance,
-    /* 材质,用PerInstanceColorAppearance做材质才能改颜色 */
-    appearance: appearance
-  });
-  /* 6.添加图元 */
-  viewer.scene.primitives.add(rectPrimivite);
-  /* 颜色变换，setTimeout说在一定时间后触发(1次)，setInterval是间隔触发（多次） */
-  setTimeout(() => {
-    let attributes = rectPrimivite.getGeometryInstanceAttributes("red");
-    attributes.color = ColorGeometryInstanceAttribute.toValue(
-      // Color.RED.withAlpha(0.5)
-      // 随机变化RGB
-      Color.fromRandom({ red: 0.5, green: 0.1 })
-    );
-    console.log("时间颜色变化");
-  }, 8000);
-
   //添加移动动画效果
   function addAnimation() {
     const startTime = JulianDate.fromDate(new Date(2024, 5, 20, 17));
@@ -466,6 +388,7 @@ function loadMap() {
       viewer.camera.lookDown(CesiumMath.toRadians(0.1));
     }
   });
+
   /* 点击互动 */
   var handler = new ScreenSpaceEventHandler(viewer.scene.canvas);
   handler.setInputAction(event => {
@@ -479,41 +402,55 @@ function loadMap() {
 
     通过pick.id._properties.info._value获取设置的属性
     */
-    console.log(pick);
     if (pick != undefined) {
-      try {
-        let attributes = rectPrimivite.getGeometryInstanceAttributes(pick.id);
+      /* 判断获取的是实体还是primitive */
+      if (typeof pick.id == "string") {
+        console.log("Primitive");
+        /* 修改primitive的颜色 */
+        let attributes = pick.primitive.getGeometryInstanceAttributes(pick.id);
         attributes.color = ColorGeometryInstanceAttribute.toValue(
           // Color.RED.withAlpha(0.5)
           // 随机变化RGB
           Color.fromRandom({ red: 0.5, green: 0.1 })
         );
-      } catch {
-        console.log("点击对象不是entity");
+        // pick.primitive.appearancematerial.uniforms.color = Color.BLUE;
+      } else {
+        console.log("实体");
+        console.log(pick.id.rectangle._material._color._value);
+        /* 值变了，但颜色不改变 */
+        // pick.id.rectangle._material._color._value = new Color(
+        //   0.4,
+        //   0.5,
+        //   0.6,
+        //   0.5
+        // );
+        // pick.id.rectangle._material = new ColorMaterialProperty(
+        //   new Color(0.4, 0.5, 0.6, 0.5)
+        // );
       }
     }
   }, ScreenSpaceEventType.LEFT_CLICK);
 
-  /* 加载geojson数据,前地址，后样式 */
-  let geojsonData = GeoJsonDataSource.load("", {
-    stroke: Color.WHEAT,
-    strokeWidth: 5
-  });
-  geojsonData.then((data: any) => {
-    viewer.dataSources.add(data);
-  });
+  function water() {
+    drawWater(viewer);
+    const positions = [75, 20, 75, 30, 85, 30, 85, 20];
+    floodAnalysis(viewer, positions, 40000, 20000);
+  }
 
-  /* 加载kml数据,kml可以自带样式 */
-  let kmlData = KmlDataSource.load("");
-  kmlData.then((data: any) => {
-    viewer.dataSources.add(data);
-  });
+  document.getElementById("water").addEventListener("click", water);
 
-  drawWater(viewer);
+  function draw() {
+    click_draw_polygon(viewer);
+  }
+  document.getElementById("draw").addEventListener("click", draw);
 
-  const positions = [75, 20, 75, 30, 85, 30, 85, 20];
-  floodAnalysis(viewer, positions, 40000, 20000);
-  click_draw_polygon(viewer);
+  function primitive() {
+    createPrimitive(viewer);
+  }
+  document.getElementById("primitive").addEventListener("click", primitive);
+
+  // snow(viewer);
+  addGeojson(viewer, "src/assets/map/T0116堤防分段数据_4490.json");
 }
 </script>
 
@@ -522,7 +459,9 @@ function loadMap() {
     <el-button id="addLayer">添加图层</el-button>
     <el-button id="addAnimation">添加动画</el-button>
     <el-button id="flyto">移动到杭州</el-button>
+    <el-button id="water">水体与淹没</el-button>
     <el-button id="draw">绘制多边形</el-button>
+    <el-button id="primitive">添加像元</el-button>
     <div id="cesiumContainer" style="width: 100%; height: 100%" />
   </div>
 </template>
