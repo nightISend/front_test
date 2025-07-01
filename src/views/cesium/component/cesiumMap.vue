@@ -36,13 +36,19 @@ import {
   Rectangle,
   ColorGeometryInstanceAttribute,
   ColorMaterialProperty,
-  Event
+  Event,
+  defined,
+  Entity,
+  Primitive,
+  GroundPolylinePrimitive,
+  Billboard
 } from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import { drawWater, floodAnalysis } from "./water";
 import { click_draw_polygon } from "./drawPolygon";
 import { createPrimitive } from "./craeatePrimitive";
 import { addGeojson } from "./readData";
+import { string } from "vue-types";
 
 Ion.defaultAccessToken =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJkNWZkODE2Ny02ZmEzLTQ2NzYtOTI3Ny03NjU4ZGQ0OGNjZTIiLCJpZCI6MjQxOTQ5LCJpYXQiOjE3MjY0OTMxMjZ9.VczJoKbH4q7J4qNvR8nKzB-ea4wAFXIerWmr9dJYbgY";
@@ -109,16 +115,86 @@ function loadMap() {
     infoBox: false
     // skyBox: new SkyBox({})天空盒，用图片替换天空
   });
+
+  /* 新建一个viewer做鹰眼图,好处是比较流畅,但需要同一图层加载两次 */
+  const viewerForOverView = new Viewer("overview", {
+    terrain: Terrain.fromWorldTerrain({
+      requestVertexNormals: true,
+      requestWaterMask: true
+    }),
+    // terrainProvider: new CesiumTerrainProvider(),
+    timeline: false,
+    navigationHelpButton: false,
+    infoBox: false,
+    // skyBox: new SkyBox({})天空盒，用图片替换天空
+    // 下面都是右上角的工具
+    homeButton: false,
+    fullscreenButton: false,
+    geocoder: false,
+    sceneModePicker: false,
+    baseLayerPicker: false,
+    // 左下角控制时间的组件
+    animation: false
+  });
+
+  // 禁止鹰眼图可控
+  let control = viewerForOverView.scene.screenSpaceCameraController;
+  control.enableRotate = false;
+  control.enableTranslate = false;
+  control.enableZoom = false;
+  control.enableTilt = false;
+  control.enableLook = false;
+
+  // 鹰眼图跟随变化
+  let syncViewer = function () {
+    viewerForOverView.camera.flyTo({
+      destination: viewer.camera.position,
+      orientation: {
+        heading: viewer.camera.heading,
+        pitch: viewer.camera.pitch,
+        roll: viewer.camera.roll
+      },
+      duration: 0.0
+    });
+  };
+  // 监听相机会很卡
+  // viewer.camera.changed.addEventListener(syncViewer);
+  // 渲染前后监听都可以
+  // viewer.scene.preRender.addEventListener(syncViewer);
+  viewer.scene.postRender.addEventListener(syncViewer);
+
+  /* 关闭商标，用括号断言类型为htmlelement */
+  (viewer.cesiumWidget.creditContainer as HTMLElement).style.display = "none";
+  (
+    viewerForOverView.cesiumWidget.creditContainer as HTMLElement
+  ).style.display = "none";
+
+  /* 使用截图做鹰眼图,有点卡顿,但无需加载新的地图
+  let cutImage = function () {
+    document.getElementById("overview").style.backgroundImage =
+      `url(${viewer.scene.canvas.toDataURL("image/png")})`;
+  };
+  // 必须渲染后截图否则会黑屏
+  viewer.scene.postRender.addEventListener(cutImage); */
+
+  // 视角不转到地下
   var scene = viewer.scene;
+  scene.globe.depthTestAgainstTerrain = true;
   // 初始化摄影机位置
-  // viewer.camera.flyTo({
-  //   destination: Cartesian3.fromDegrees(120, 30, 800),
-  //   orientation: {
-  //     heading: CesiumMath.toRadians(0.0),
-  //     pitch: CesiumMath.toRadians(-15.0)
-  //   }
-  // });
-  // 添加图层
+  viewer.camera.setView({
+    destination: Cartesian3.fromDegrees(100, 30, 2000000),
+    /* 默认好用 */
+    orientation: {
+      /* 
+        Roll:绕X旋转
+        Pitch:绕Y旋转
+        Heading:绕Z轴旋转
+      */
+      // heading: CesiumMath.toRadians(90.0)
+      // pitch: CesiumMath.toRadians(60.0)
+      // roll: CesiumMath.toRadians(90)
+    }
+  });
 
   var ifAddLayer = true;
   document.getElementById("addLayer").addEventListener("click", function () {
@@ -143,20 +219,20 @@ function loadMap() {
   //前往杭州
   document.getElementById("flyto").addEventListener("click", () => {
     /* 两种方法都可以实现视角变换，flyto有移动效果，setview直接瞬移 */
-    // viewer.camera.flyTo({
+    viewer.camera.flyTo({
+      destination: Cartesian3.fromDegrees(120, 30, 800)
+      // orientation: {
+      //   heading: CesiumMath.toRadians(0.0),
+      //   pitch: CesiumMath.toRadians(-15.0)
+      // }
+    });
+    // viewer.camera.setView({
     //   destination: Cartesian3.fromDegrees(120, 30, 800),
     //   orientation: {
     //     heading: CesiumMath.toRadians(0.0),
     //     pitch: CesiumMath.toRadians(-15.0)
     //   }
     // });
-    viewer.camera.setView({
-      destination: Cartesian3.fromDegrees(120, 30, 800),
-      orientation: {
-        heading: CesiumMath.toRadians(0.0),
-        pitch: CesiumMath.toRadians(-15.0)
-      }
-    });
   });
 
   /*
@@ -201,7 +277,7 @@ function loadMap() {
       // 是否显示
       show: true,
       //线是否贴地
-      clampToGround: false
+      clampToGround: true
     }
   });
 
@@ -227,41 +303,41 @@ function loadMap() {
   });
 
   /* 可以用viewer.entities.add直接添加模型 */
-  const addModel = viewer.entities.add({
-    id: "Model",
-    position: Cartesian3.fromDegrees(110.2, 34.5, 20000),
-    // 设置方向
-    orientation: Transforms.headingPitchRollQuaternion(
-      Cartesian3.fromDegrees(110.2, 34.5, 20000),
-      new HeadingPitchRoll(
-        CesiumMath.toRadians(10),
-        CesiumMath.toRadians(20),
-        CesiumMath.toRadians(30)
-      )
-    ),
-    model: {
-      // 引入模型
-      uri: "src/assets/model/Airplane.glb",
-      // 模型的近似最小像素大小，而不考虑缩放。这可以用来确保即使观看者缩小也可以看到模型。如果为0.0，则不强制使用最小大小
-      minimumPixelSize: 1280,
-      // 模型的颜色（与模型的渲染颜色混合的属性）
-      color: Color.WHITE.withAlpha(1),
-      // 模型的最大比例大小
-      maximumScale: 20000,
-      // 设置模型轮廓（边框）颜色
-      silhouetteColor: Color.WHITE,
-      // 设置模型轮廓（边框）大小
-      silhouetteSize: 2,
-      // 是否执行模型动画
-      runAnimations: true,
-      // 应用于图像的统一比例。比例大于会1.0放大标签，而比例小于会1.0缩小标签。
-      scale: 10,
-      // 显示在距相机的距离处的属性，多少区间内是可以显示的
-      distanceDisplayCondition: new DistanceDisplayCondition(0, 150000),
-      // 是否显示
-      show: true
-    }
-  });
+  // const addModel = viewer.entities.add({
+  //   id: "Model",
+  //   position: Cartesian3.fromDegrees(110.2, 34.5, 20000),
+  //   // 设置方向
+  //   orientation: Transforms.headingPitchRollQuaternion(
+  //     Cartesian3.fromDegrees(110.2, 34.5, 20000),
+  //     new HeadingPitchRoll(
+  //       CesiumMath.toRadians(10),
+  //       CesiumMath.toRadians(20),
+  //       CesiumMath.toRadians(30)
+  //     )
+  //   ),
+  //   model: {
+  //     // 引入模型
+  //     uri: "src/assets/model/Airplane.glb",
+  //     // 模型的近似最小像素大小，而不考虑缩放。这可以用来确保即使观看者缩小也可以看到模型。如果为0.0，则不强制使用最小大小
+  //     minimumPixelSize: 1280,
+  //     // 模型的颜色（与模型的渲染颜色混合的属性）
+  //     color: Color.WHITE.withAlpha(1),
+  //     // 模型的最大比例大小
+  //     maximumScale: 20000,
+  //     // 设置模型轮廓（边框）颜色
+  //     silhouetteColor: Color.WHITE,
+  //     // 设置模型轮廓（边框）大小
+  //     silhouetteSize: 2,
+  //     // 是否执行模型动画
+  //     runAnimations: true,
+  //     // 应用于图像的统一比例。比例大于会1.0放大标签，而比例小于会1.0缩小标签。
+  //     scale: 10,
+  //     // 显示在距相机的距离处的属性，多少区间内是可以显示的
+  //     distanceDisplayCondition: new DistanceDisplayCondition(0, 150000),
+  //     // 是否显示
+  //     show: true
+  //   }
+  // });
 
   /* 添加标签和图片 */
   const addLable = viewer.entities.add({
@@ -288,7 +364,7 @@ function loadMap() {
     }
   });
 
-  //添加移动动画效果
+  /* 添加移动动画效果,要点击时间轴才能出现动画 */
   function addAnimation() {
     const startTime = JulianDate.fromDate(new Date(2024, 5, 20, 17));
     // const startTime = JulianDate.now();
@@ -357,7 +433,11 @@ function loadMap() {
         })
       }
     });
+    // addModel.position = positionProperty;
+    // addModel.orientation = positionProperty;
     viewer.zoomTo(addModel);
+    // 自动启用时间轴
+    viewer.clock.shouldAnimate = true;
     // viewer.trackedEntity = addModel;
   }
   document
@@ -431,6 +511,11 @@ function loadMap() {
     }
   }, ScreenSpaceEventType.LEFT_CLICK);
 
+  /* 鼠标悬浮交互 */
+  handler.setInputAction(event => {
+    let pick = viewer.scene.pick(event.endPosition); // 获取 pick 拾取对象
+  }, ScreenSpaceEventType.MOUSE_MOVE);
+
   function water() {
     drawWater(viewer);
     const positions = [75, 20, 75, 30, 85, 30, 85, 20];
@@ -455,13 +540,29 @@ function loadMap() {
 </script>
 
 <template>
-  <div class="box">
+  <div style="position: relative; width: 100%; height: 100%">
     <el-button id="addLayer">添加图层</el-button>
     <el-button id="addAnimation">添加动画</el-button>
     <el-button id="flyto">移动到杭州</el-button>
     <el-button id="water">水体与淹没</el-button>
     <el-button id="draw">绘制多边形</el-button>
     <el-button id="primitive">添加像元</el-button>
-    <div id="cesiumContainer" style="width: 100%; height: 100%" />
+    <div id="cesiumContainer" style=" z-index: 1;width: 100%; height: 100%" />
+    <div id="overview" class="overview" />
   </div>
 </template>
+<style scoped>
+.overview {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 15%;
+  height: 20%;
+
+  /* background-color: yellow; */
+
+  /* background-repeat: no-repeat;
+  background-size: 100% 100%; */
+}
+</style>
