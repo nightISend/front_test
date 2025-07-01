@@ -1,13 +1,15 @@
 <template>
-  <div style="width: 100%; height: 100%">
+  <div style="position: relative; width: 100%; height: 100%">
     <!-- <div class="box">盒子</div>
     <div class="box1">盒子下</div> -->
 
-    <div class="fixe-style">
+    <!-- <div class="fixe-style">
       <div style="background-color: red">1</div>
       <div style="background-color: blue">1</div>
       <div style="background-color: yellow">1</div>
-    </div>
+    </div> -->
+
+    <iframe src="https://www.bilibili.com/" style="width: 100%; height: 100%" />
   </div>
 </template>
 <script setup lang="ts">
