@@ -41,7 +41,8 @@ import {
   Entity,
   Primitive,
   GroundPolylinePrimitive,
-  Billboard
+  Billboard,
+  CallbackProperty
 } from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import { drawWater, floodAnalysis } from "./water";
@@ -185,7 +186,7 @@ function loadMap() {
     destination: Cartesian3.fromDegrees(100, 30, 2000000),
     /* 默认好用 */
     orientation: {
-      /* 
+      /*
         Roll:绕X旋转
         Pitch:绕Y旋转
         Heading:绕Z轴旋转
@@ -288,17 +289,24 @@ function loadMap() {
   GridMaterialProperty --网格纹理材质
   可以自定义XXXMaterialProperty
   */
+  let rotationNumber = ref(0);
   let polygonMaterial = new ColorMaterialProperty(
     new Color(1.0, 1.0, 1.1, 1.0)
   );
   var addPolygon = viewer.entities.add({
     id: "rectangle",
     rectangle: {
-      coordinates: Rectangle.fromDegrees(90, 20, 105, 30),
+      coordinates: Rectangle.fromDegrees(100, 20, 105, 30),
       height: 10,
       extrudedHeight: 20000,
       // material: Color.BLACK.withAlpha(0.8)
       material: polygonMaterial
+      // rotation: new CallbackProperty(() => {
+      //   rotationNumber.value = rotationNumber.value + 1;
+      //   return rotationNumber.value / 10;
+      // }, false)
+      /* 响应式数据无效 */
+      // rotation: rotationNumber.value
     }
   });
 
@@ -306,7 +314,7 @@ function loadMap() {
   // const addModel = viewer.entities.add({
   //   id: "Model",
   //   position: Cartesian3.fromDegrees(110.2, 34.5, 20000),
-  //   // 设置方向
+  //   // orientation只有模型有用
   //   orientation: Transforms.headingPitchRollQuaternion(
   //     Cartesian3.fromDegrees(110.2, 34.5, 20000),
   //     new HeadingPitchRoll(
@@ -360,6 +368,36 @@ function loadMap() {
       width: 25,
       height: 25,
       verticalOrigin: VerticalOrigin.TOP,
+      horizontalOrigin: HorizontalOrigin.CENTER
+    }
+  });
+
+  let number = 0;
+  const addRotateLable = viewer.entities.add({
+    id: "RotateLable",
+    position: Cartesian3.fromDegrees(119.2, 33.5, 20000),
+    // 文本不能转
+    orientation: Transforms.headingPitchRollQuaternion(
+      Cartesian3.fromDegrees(119.2, 33.5, 20000),
+      new HeadingPitchRoll(
+        CesiumMath.toRadians(90),
+        CesiumMath.toRadians(90),
+        CesiumMath.toRadians(90)
+      )
+    ),
+    label: {
+      text: new CallbackProperty(() => {
+        number = number + 1;
+        return number.toString();
+      }, false),
+      font: "12px sans-serif",
+      fillColor: Color.WHITE,
+      outlineWidth: 5,
+      style: LabelStyle.FILL_AND_OUTLINE,
+      /* 标签位置偏移量，避免与模型重合 */
+      pixelOffset: new Cartesian2(0, -24),
+      /* 标签位置 */
+      verticalOrigin: VerticalOrigin.BOTTOM,
       horizontalOrigin: HorizontalOrigin.CENTER
     }
   });
@@ -547,7 +585,7 @@ function loadMap() {
     <el-button id="water">水体与淹没</el-button>
     <el-button id="draw">绘制多边形</el-button>
     <el-button id="primitive">添加像元</el-button>
-    <div id="cesiumContainer" style=" z-index: 1;width: 100%; height: 100%" />
+    <div id="cesiumContainer" style="z-index: 1; width: 100%; height: 100%" />
     <div id="overview" class="overview" />
   </div>
 </template>
