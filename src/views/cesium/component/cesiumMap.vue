@@ -49,8 +49,7 @@ import { drawWater, floodAnalysis } from "./water";
 import { click_draw_polygon } from "./drawPolygon";
 import { createPrimitive } from "./craeatePrimitive";
 import { addGeojson } from "./readData";
-import { string } from "vue-types";
-
+import { addPoints } from "./points";
 Ion.defaultAccessToken =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJkNWZkODE2Ny02ZmEzLTQ2NzYtOTI3Ny03NjU4ZGQ0OGNjZTIiLCJpZCI6MjQxOTQ5LCJpYXQiOjE3MjY0OTMxMjZ9.VczJoKbH4q7J4qNvR8nKzB-ea4wAFXIerWmr9dJYbgY";
 
@@ -570,7 +569,10 @@ function loadMap() {
   function primitive() {
     createPrimitive(viewer);
   }
-  document.getElementById("primitive").addEventListener("click", primitive);
+  function addMorePoints() {
+    return addPoints(viewer);
+  }
+  document.getElementById("primitive").addEventListener("click", addMorePoints);
 
   // snow(viewer);
   addGeojson(viewer, "src/assets/map/T0116堤防分段数据_4490.json");
