@@ -1,5 +1,5 @@
 export default {
-  path: "/cesium",
+  path: "/",
   meta: {
     title: "地图"
   },
@@ -19,6 +19,15 @@ export default {
       component: () => import("@/views/ol/index.vue"),
       meta: {
         title: "openlayers2D地图",
+        showParent: true
+      }
+    },
+    {
+      path: "/supermap3d/index.vue",
+      name: "supermapRouter",
+      component: () => import("@/views/supermap3d/index.vue"),
+      meta: {
+        title: "supermap3d地图",
         showParent: true
       }
     }
