@@ -44,6 +44,7 @@ import {
   Billboard,
   CallbackProperty
 } from "cesium";
+import * as Cesium from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import { drawWater, floodAnalysis } from "./water";
 import { click_draw_polygon } from "./drawPolygon";
