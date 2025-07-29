@@ -33,7 +33,7 @@ export default ({ mode }: ConfigEnv): UserConfigExport => {
         },
         "/qgj": {
           // 这个地址写在.env.production里
-          target: import.meta.env.BASE_URL,
+          target: loadEnv(mode, process.cwd()).VITE_BASE_API,
           changeOrigin: true,
           rewrite: path => path.replace(/^\/qgj/, "")
         }
