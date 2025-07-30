@@ -5,7 +5,7 @@
 
 <script setup lang="ts">
 import layers from "./layers";
-import { onMounted } from "vue";
+import { onMounted, ref } from "vue";
 
 var tiandituToken = "e2c4a8d8f10bd9aeec58f4dd88bb9bf2";
 
@@ -32,14 +32,47 @@ function loadMap(SuperMap3D) {
   window.scene = viewer.scene;
 
   /* 添加天地图影像 */
-  viewer.imageryLayers.addImageryProvider(
-    new SuperMap3D.TiandituImageryProvider({
-      // 通过修改mapStyle修改服务类型
-      mapStyle: SuperMap3D.TiandituMapsStyle.IMG_C,
-      token: tiandituToken
-    })
-  );
+  var tianDiTuImageProvider = new SuperMap3D.TiandituImageryProvider({
+    // 通过修改mapStyle修改服务类型
+    mapStyle: SuperMap3D.TiandituMapsStyle.IMG_C,
+    token: tiandituToken
+  });
+  var tianDiTuZjProvider = new SuperMap3D.TiandituImageryProvider({
+    mapStyle: SuperMap3D.TiandituMapsStyle.CIA_C,
+    token: tiandituToken
+  });
+  // viewer.imageryLayers.addImageryProvider(tianDiTuImageProvider);
+  // viewer.imageryLayers.addImageryProvider(tianDiTuZjProvider);
   var imageryLayers = viewer.imageryLayers;
+
+  /* 修改图层样式 */
+  var viewModel = ref({
+    brightness: 1,
+    contrast: 1,
+    hue: 1,
+    saturation: 1,
+    gamma: 1,
+    alpha: 1
+  });
+  function subscribeLayerParameter() {
+    var layer;
+    if (imageryLayers.length > 1) {
+      // 使用get方法获取图层
+      layer = imageryLayers.get(1);
+      console.log("获得1级图层");
+    } else {
+      layer = imageryLayers.get(0);
+      console.log("获得0级图层");
+    }
+    // 设置图层样式
+    layer.brightness = viewModel.value.brightness;
+    layer.contrast = viewModel.value.contrast;
+    layer.hue = viewModel.value.hue;
+    layer.saturation = viewModel.value.saturation;
+    layer.gamma = viewModel.value.gamma;
+    layer.alpha = viewModel.value.alpha;
+  }
+  subscribeLayerParameter();
 
   var imageType = "";
   var provider;
