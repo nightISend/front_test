@@ -4,11 +4,18 @@
 </template>
 
 <script setup lang="ts">
-import { vi } from "element-plus/es/locale/index.mjs";
 import layers from "./layers";
 import { onMounted } from "vue";
 
 var tiandituToken = "e2c4a8d8f10bd9aeec58f4dd88bb9bf2";
+
+/* 声明全局变量,允许其它组件可直接操作地图要素 */
+declare global {
+  interface Window {
+    viewer: any;
+    scene: any;
+  }
+}
 
 onMounted(() => {
   /* 忽略该报错 */
@@ -21,6 +28,8 @@ function loadMap(SuperMap3D) {
       contextType: 2 // Webgl2:2 ; WebGPU:3
     }
   });
+  window.viewer = viewer;
+  window.scene = viewer.scene;
 
   /* 添加天地图影像 */
   viewer.imageryLayers.addImageryProvider(
@@ -32,12 +41,12 @@ function loadMap(SuperMap3D) {
   );
   var imageryLayers = viewer.imageryLayers;
 
-  var imageType = "scene";
+  var imageType = "";
   var provider;
   var restLayer;
   switch (imageType) {
     /* 超图工作空间rest地图服务,正常加载 */
-    case "rest":
+    case "rest": {
       // 影像提供者，类似于数据源
       provider = new SuperMap3D.SuperMapImageryProvider({
         url: "http://10.33.13.206:30121/iserver/services/map-QTJshp/rest/maps/T50km2new%40QTJshp"
@@ -48,8 +57,10 @@ function loadMap(SuperMap3D) {
 
       // flyTo 直接缩放到图层
       viewer.flyTo(restLayer);
+      break;
+    }
     // 三维瓦片服务，发布成三维rest服务,正常加载
-    case "s3m":
+    case "s3m": {
       // addS3MTilesLayerByScp通过读取.scp（配置文件）来加载影像
       const promise = viewer.scene.addS3MTilesLayerByScp(
         "http://10.33.13.206:30121/iserver/services/lanjiangdifangqx3/rest/realspace/datas/Combine/config",
@@ -61,6 +72,8 @@ function loadMap(SuperMap3D) {
         console.log(layer);
         viewer.flyTo(layer);
       });
+      break;
+    }
     // 地形服务，发布成三维rest服务,正常加载
     case "terrain": {
       const terrainProvider = new SuperMap3D.SuperMapTerrainProvider({
@@ -71,6 +84,7 @@ function loadMap(SuperMap3D) {
         // invisibility: true
       });
       viewer.terrainProvider = terrainProvider;
+      break;
     }
     // 矢量瓦片服务，发服务选则mvt矢量服务，除了切成瓦片后发布，也可以数据源选工作空间，服务类型选矢量瓦片
     case "mvt": {
@@ -81,6 +95,7 @@ function loadMap(SuperMap3D) {
         name: "站点注记",
         viewer: viewer
       });
+      break;
     }
     // 场景，工作空间发三维服务
     case "scene": {
@@ -94,6 +109,7 @@ function loadMap(SuperMap3D) {
       promise.then(layer => {
         console.log(layer);
       });
+      break;
     }
   }
 }
