@@ -4,6 +4,7 @@ defineOptions({
 });
 import { onMounted } from "vue";
 import webglmap from "./component/webglmap.vue";
+declare const SuperMap3D: any; //避免找不到名称“SuperMap3D”报错
 
 /* 外部调用地图 */
 function outSideLoad(SuperMap3D) {

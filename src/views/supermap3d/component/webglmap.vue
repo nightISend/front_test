@@ -6,6 +6,7 @@
 <script setup lang="ts">
 import layers from "./layers";
 import { onMounted, ref } from "vue";
+declare const SuperMap3D: any; //避免找不到名称“SuperMap3D”报错
 
 var tiandituToken = "e2c4a8d8f10bd9aeec58f4dd88bb9bf2";
 
@@ -18,7 +19,6 @@ declare global {
 }
 
 onMounted(() => {
-  /* 忽略该报错 */
   loadMap(SuperMap3D);
 });
 
