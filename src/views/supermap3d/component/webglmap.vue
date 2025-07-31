@@ -74,7 +74,7 @@ function loadMap(SuperMap3D) {
   }
   subscribeLayerParameter();
 
-  var imageType = "";
+  var imageType = "mvt";
   var provider;
   var restLayer;
   switch (imageType) {
@@ -121,12 +121,33 @@ function loadMap(SuperMap3D) {
     }
     // 矢量瓦片服务，发服务选则mvt矢量服务，除了切成瓦片后发布，也可以数据源选工作空间，服务类型选矢量瓦片
     case "mvt": {
-      // 不可flyto
+      // 不可flyto,可以透过
       var layer = viewer.scene.addVectorTilesMap({
-        url: "http://10.33.13.208:8090/iserver/services/map-stations/restjsr/v1/vectortile/maps/stations",
+        url: "http://10.33.13.208:8090/iserver/services/map-mvt-T1000km2/restjsr/v1/vectortile/maps/T1000km2",
         canvasWidth: 512,
-        name: "站点注记",
+        name: "1000平方米河流",
         viewer: viewer
+      });
+      // 图层为异步加载，直接获取图层属性值为空值
+      var promise = layer.readyPromise;
+      SuperMap3D.when(promise, data => {
+        var bounds = layer.rectangle;
+        viewer.scene.camera.setView({
+          destination: new SuperMap3D.Cartesian3.fromRadians(
+            (bounds.east + bounds.west) * 0.5,
+            (bounds.north + bounds.south) * 0.5,
+            1000000
+          ),
+          orientation: {
+            heading: 0,
+            roll: 0
+          }
+        });
+      });
+
+      // 读取矢量瓦片属性，仅矢量瓦片有效
+      viewer.selectedEntityChanged.addEventListener(entity => {
+        console.log(entity.pickResult);
       });
       break;
     }
