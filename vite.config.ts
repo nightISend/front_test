@@ -27,15 +27,25 @@ export default ({ mode }: ConfigEnv): UserConfigExport => {
       proxy: {
         "/api": {
           // 这里填写后端地址
-          target: "http://localhost:8080/",
+          target: "http://localhost:8080",
           changeOrigin: true,
           rewrite: path => path.replace(/^\/api/, "")
         },
-        "/qgj": {
+        "/qgj207": {
           // 这个地址写在.env.production里
-          target: loadEnv(mode, process.cwd()).VITE_BASE_API,
+          target: loadEnv(mode, process.cwd()).VITE_QTJ207_API,
           changeOrigin: true,
-          rewrite: path => path.replace(/^\/qgj/, "")
+          rewrite: path => path.replace(/^\/qgj207/, "")
+        },
+        "/qgj206": {
+          target: "http://10.33.13.206:30121",
+          changeOrigin: true,
+          rewrite: path => path.replace(/^\/qgj206/, "")
+        },
+        "/qgj208": {
+          target: "http://10.33.13.208:8090/",
+          changeOrigin: true,
+          rewrite: path => path.replace(/^\/qgj208/, "")
         }
       },
       // 预热文件以提前转换和缓存结果，降低启动期间的初始页面加载时长并防止转换瀑布
