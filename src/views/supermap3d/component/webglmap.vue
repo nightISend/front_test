@@ -7,6 +7,7 @@
 import layers from "./layers";
 import { onMounted, ref } from "vue";
 declare const SuperMap3D: any; //避免找不到名称“SuperMap3D”报错
+import { getLayertree } from "@/api/supermap3dApi";
 
 var tiandituToken = "e2c4a8d8f10bd9aeec58f4dd88bb9bf2";
 
@@ -41,7 +42,7 @@ function loadMap(SuperMap3D) {
     mapStyle: SuperMap3D.TiandituMapsStyle.CIA_C,
     token: tiandituToken
   });
-  // viewer.imageryLayers.addImageryProvider(tianDiTuImageProvider);
+  viewer.imageryLayers.addImageryProvider(tianDiTuImageProvider);
   // viewer.imageryLayers.addImageryProvider(tianDiTuZjProvider);
   var imageryLayers = viewer.imageryLayers;
 
@@ -74,15 +75,17 @@ function loadMap(SuperMap3D) {
   }
   subscribeLayerParameter();
 
-  var imageType = "mvt";
+  var imageType = "s3m";
   var provider;
   var restLayer;
+  var s3mPromise;
   switch (imageType) {
     /* 超图工作空间rest地图服务,正常加载 */
     case "rest": {
       // 影像提供者，类似于数据源
       provider = new SuperMap3D.SuperMapImageryProvider({
-        url: "http://10.33.13.206:30121/iserver/services/map-QTJshp/rest/maps/T50km2new%40QTJshp"
+        url: "http://10.33.13.206:30121/iserver/services/map-QTJshp/rest/maps/T50km2new%40QTJshp",
+        name: "50平方公里河流"
       });
       // model.ancestorMaximumLevel = 2;
       restLayer = viewer.imageryLayers.addImageryProvider(provider); // 保存引用
@@ -94,22 +97,27 @@ function loadMap(SuperMap3D) {
     }
     // 三维瓦片服务，发布成三维rest服务,正常加载
     case "s3m": {
-      // addS3MTilesLayerByScp通过读取.scp（配置文件）来加载影像
-      const promise = viewer.scene.addS3MTilesLayerByScp(
+      // addS3MTilesLayerByScp通过读取.scp（配置文件）来加载影像，返回的是promise
+      s3mPromise = viewer.scene.addS3MTilesLayerByScp(
         "http://10.33.13.206:30121/iserver/services/lanjiangdifangqx3/rest/realspace/datas/Combine/config",
         {
           name: "北支江水面"
         }
       );
-      promise.then(layer => {
-        console.log(layer);
+      SuperMap3D.when(s3mPromise, function (layer) {
         viewer.flyTo(layer);
+        viewer.scene.multiViewportMode = SuperMap3D.MultiViewportMode.VERTICAL;
+        console.log("完成分屏");
+        // 仅包含场景中三维瓦片的几何
+        var beizhijiang = viewer.scene.layers.find("北支江水面");
+        beizhijiang.setVisibleInViewport(1, false);
       });
       break;
     }
     // 地形服务，发布成三维rest服务,正常加载
     case "terrain": {
       const terrainProvider = new SuperMap3D.SuperMapTerrainProvider({
+        Name: "地形",
         url: "http://10.33.13.206:30121/iserver/services/zjdem0723/rest/realspace/datas/%E6%B5%99%E6%B1%9F%E7%9C%81DOM",
         // requestWaterMask: true,
         // requestVertexNormals: true,
@@ -121,7 +129,7 @@ function loadMap(SuperMap3D) {
     }
     // 矢量瓦片服务，发服务选则mvt矢量服务，除了切成瓦片后发布，也可以数据源选工作空间，服务类型选矢量瓦片
     case "mvt": {
-      // 不可flyto,可以透过
+      // 不可flyto,返回的不是promise
       var layer = viewer.scene.addVectorTilesMap({
         url: "http://10.33.13.208:8090/iserver/services/map-mvt-T1000km2/restjsr/v1/vectortile/maps/T1000km2",
         canvasWidth: 512,
@@ -151,7 +159,7 @@ function loadMap(SuperMap3D) {
       });
       break;
     }
-    // 场景，工作空间发三维服务
+    // 打开三维场景，工作空间发三维服务
     case "scene": {
       const promise = viewer.scene.open(
         "http://10.33.13.206:30121/iserver/services/yanshi/rest/realspace",
