@@ -75,7 +75,7 @@ function loadMap(SuperMap3D) {
   }
   subscribeLayerParameter();
 
-  var imageType = "s3m";
+  var imageType = "";
   var provider;
   var restLayer;
   var s3mPromise;
@@ -174,6 +174,56 @@ function loadMap(SuperMap3D) {
       break;
     }
   }
+  var dzx;
+  SuperMap3D.loadJson("src/assets/map/堤轴线_sup.json").then(
+    (jsonData: any) => {
+      jsonData.features.forEach((item: any) => {
+        const positions = [];
+        if (item.geometry.type === "LineString") {
+          item.geometry.coordinates.forEach(coordinate => {
+            positions.push(coordinate[0], coordinate[1], 10000);
+          });
+          dzx = viewer.entities.add({
+            id: "dzx",
+            polyline: {
+              show: true,
+              positions:
+                SuperMap3D.Cartesian3.fromDegreesArrayHeights(positions),
+              width: 6,
+              clampToGround: false,
+              material: new SuperMap3D.Color.fromCssColorString("#6495ED")
+            }
+          });
+          // 添加Label失败
+          var label = viewer.entities.add({
+            id: "label",
+            position: SuperMap3D.Cartesian3.fromDegrees(120, 30, 10000),
+            // point: {
+            //   color: SuperMap3D.Color.YELLOW,
+            //   pixelSize: 15,
+            //   show: true
+            // },
+            Label: {
+              text: "飞机模型",
+              font: "12px sans-serif",
+              fillColor: SuperMap3D.Color.WHITE,
+              outlineWidth: 5,
+              show: true,
+              scale: 5
+            }
+            // billboard: {
+            //   image: "src/assets/map/fire_small.png",
+            //   width: 25,
+            //   height: 25,
+            //   verticalOrigin: SuperMap3D.VerticalOrigin.TOP,
+            //   horizontalOrigin: SuperMap3D.HorizontalOrigin.CENTER
+            // }
+          });
+          viewer.flyTo(label);
+        }
+      });
+    }
+  );
 }
 </script>
 <style>
