@@ -1,7 +1,9 @@
 <template>
   <!-- 不能设置位置 -->
   <div id="SuperMap3DContainer" class="supermap3d-container" />
-  <div id="infoBox" class="infoBoxStyle" />
+  <div id="infoBox" class="infoBoxStyle">
+    <echart />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -9,6 +11,7 @@ import layers from "./layers";
 import { onMounted, ref } from "vue";
 declare const SuperMap3D: any; //避免找不到名称“SuperMap3D”报错
 import { getLayertree } from "@/api/supermap3dApi";
+import echart from "./echart.vue";
 
 var tiandituToken = "e2c4a8d8f10bd9aeec58f4dd88bb9bf2";
 
@@ -226,6 +229,7 @@ function loadMap(SuperMap3D) {
     }
   );
 
+  var isPDF = true;
   function leftClickShowPDF() {
     var handler = new SuperMap3D.ScreenSpaceEventHandler(viewer.scene.canvas);
     handler.setInputAction(function (movement: any) {
@@ -236,11 +240,18 @@ function loadMap(SuperMap3D) {
       );
       const infoWindow = document.getElementById("infoBox");
       if (picked_obj != undefined && picked_obj.id.id === "dzx") {
-        infoWindow.innerHTML = `
-          <iframe src="src/assets/map/postgre.pdf" 
+        if (isPDF) {
+          infoWindow.innerHTML = `
+          <iframe src="src/assets/map/postgre.pdf"
                   style="width: 100%; height: 90%; border: none; margin-top: 10px;">
           </iframe>
         `;
+        } else {
+          // infoWindow.innerHTML = `
+          //   <echart />
+          // `;
+        }
+
         infoWindow.style.display = "block";
         infoWindow.style.left = movement.position.x + 30 + "px";
         infoWindow.style.top = movement.position.y + 30 + "px";
@@ -264,6 +275,8 @@ function loadMap(SuperMap3D) {
   display: none;
   width: 40%;
   height: 40%;
-  background: url("/src/assets/map/waterNormals.jpg");
+
+  /* background: url("/src/assets/map/waterNormals.jpg"); */
+  background-color: aqua;
 }
 </style>
