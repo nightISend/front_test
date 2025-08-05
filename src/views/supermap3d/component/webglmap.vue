@@ -1,6 +1,7 @@
 <template>
   <!-- 不能设置位置 -->
   <div id="SuperMap3DContainer" class="supermap3d-container" />
+  <div id="infoBox" class="infoBoxStyle" />
 </template>
 
 <script setup lang="ts">
@@ -219,16 +220,50 @@ function loadMap(SuperMap3D) {
             //   horizontalOrigin: SuperMap3D.HorizontalOrigin.CENTER
             // }
           });
-          viewer.flyTo(label);
+          viewer.flyTo(dzx);
         }
       });
     }
   );
+
+  function leftClickShowPDF() {
+    var handler = new SuperMap3D.ScreenSpaceEventHandler(viewer.scene.canvas);
+    handler.setInputAction(function (movement: any) {
+      // movement.position能获取到位置
+      var picked_obj = viewer.scene.pick(
+        movement.position.x,
+        movement.position.y
+      );
+      const infoWindow = document.getElementById("infoBox");
+      if (picked_obj != undefined && picked_obj.id.id === "dzx") {
+        infoWindow.innerHTML = `
+          <iframe src="src/assets/map/postgre.pdf" 
+                  style="width: 100%; height: 90%; border: none; margin-top: 10px;">
+          </iframe>
+        `;
+        infoWindow.style.display = "block";
+        infoWindow.style.left = movement.position.x + 30 + "px";
+        infoWindow.style.top = movement.position.y + 30 + "px";
+      } else {
+        infoWindow.style.display = "none";
+      }
+    }, SuperMap3D.ScreenSpaceEventType.LEFT_CLICK);
+  }
+  leftClickShowPDF();
 }
 </script>
 <style>
 .supermap3d-container {
   width: 100%;
   height: 100%;
+}
+
+.infoBoxStyle {
+  position: absolute;
+  z-index: 999;
+  display: none;
+  width: 40%;
+  height: 40%;
+  background: url("/src/assets/map/waterNormals.jpg");
 }
 </style>
