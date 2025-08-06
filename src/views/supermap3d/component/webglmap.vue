@@ -179,6 +179,9 @@ function loadMap(SuperMap3D) {
     }
   }
   var dzx;
+  const allLabels = viewer.scene.primitives.add(
+    new SuperMap3D.LabelCollection({ scene: viewer.scene })
+  );
   SuperMap3D.loadJson("src/assets/map/堤轴线_sup.json").then(
     (jsonData: any) => {
       jsonData.features.forEach((item: any) => {
@@ -186,6 +189,33 @@ function loadMap(SuperMap3D) {
         if (item.geometry.type === "LineString") {
           item.geometry.coordinates.forEach(coordinate => {
             positions.push(coordinate[0], coordinate[1], 10000);
+
+            // lable不能flyto
+            const labelCollection = allLabels.add({
+              position: SuperMap3D.Cartesian3.fromDegrees(
+                coordinate[0],
+                coordinate[1],
+                20000
+              ),
+              text: "lable",
+              showBackground: false,
+              // backgroundColor: new SuperMap3D.Color.fromCssColorString('#FFFF00'),
+              font: "30px 黑体",
+              fillColor: SuperMap3D.Color.fromCssColorString("#F0F8FF"),
+              pixelOffset: new SuperMap3D.Cartesian2(0.0, -25),
+              // distanceDisplayCondition: new SuperMap3D.DistanceDisplayCondition(
+              //   0.0,
+              //   150000
+              // ),
+              scaleByDistance: new SuperMap3D.NearFarScalar(
+                1000,
+                1.0,
+                1000000,
+                0.1
+              ),
+              horizontalOrigin: SuperMap3D.HorizontalOrigin.CENTER,
+              verticalOrigin: SuperMap3D.VerticalOrigin.BOTTOM
+            });
           });
           dzx = viewer.entities.add({
             id: "dzx",
@@ -223,6 +253,7 @@ function loadMap(SuperMap3D) {
             //   horizontalOrigin: SuperMap3D.HorizontalOrigin.CENTER
             // }
           });
+
           viewer.flyTo(dzx);
         }
       });
