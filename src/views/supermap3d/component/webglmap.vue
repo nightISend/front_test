@@ -36,6 +36,9 @@ function loadMap(SuperMap3D) {
   window.viewer = viewer;
   window.scene = viewer.scene;
 
+  // viewer.scene.mode = SuperMap3D.SceneMode.SCENE2D;
+  // viewer.scene.mode = SuperMap3D.SceneMode.COLUMBUS_VIEW;
+
   /* 添加天地图影像 */
   var tianDiTuImageProvider = new SuperMap3D.TiandituImageryProvider({
     // 通过修改mapStyle修改服务类型
