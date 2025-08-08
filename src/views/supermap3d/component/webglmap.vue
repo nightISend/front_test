@@ -292,6 +292,20 @@ function loadMap(SuperMap3D) {
       } else {
         infoWindow.style.display = "none";
       }
+
+      // 获取点击位置笛卡尔坐标并转成经纬度
+      viewer.scene.pickPositionAsync(movement.position).then(position => {
+        console.log(position);
+        var cartographic = SuperMap3D.Cartographic.fromCartesian(position);
+        console.log(cartographic);
+        var longitude = SuperMap3D.Math.toDegrees(cartographic.longitude);
+        var latitude = SuperMap3D.Math.toDegrees(cartographic.latitude);
+        var height = cartographic.height;
+        if (height < 0) {
+          height = 0;
+        }
+        console.log(longitude, latitude, height);
+      });
     }, SuperMap3D.ScreenSpaceEventType.LEFT_CLICK);
   }
   leftClickShowPDF();
