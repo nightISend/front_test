@@ -4,12 +4,14 @@
   <div id="infoBox" class="infoBoxStyle">
     <echart />
   </div>
+  <div id="test" class="sm-div-graphic">气泡测试</div>
 </template>
 
 <script setup lang="ts">
 import layers from "./layers";
 import { onMounted, ref } from "vue";
 declare const SuperMap3D: any; //避免找不到名称“SuperMap3D”报错
+declare const Popup: any;
 import { getLayertree } from "@/api/supermap3dApi";
 import echart from "./echart.vue";
 
@@ -295,20 +297,29 @@ function loadMap(SuperMap3D) {
 
       // 获取点击位置笛卡尔坐标并转成经纬度
       viewer.scene.pickPositionAsync(movement.position).then(position => {
-        console.log(position);
         var cartographic = SuperMap3D.Cartographic.fromCartesian(position);
-        console.log(cartographic);
         var longitude = SuperMap3D.Math.toDegrees(cartographic.longitude);
         var latitude = SuperMap3D.Math.toDegrees(cartographic.latitude);
         var height = cartographic.height;
         if (height < 0) {
           height = 0;
         }
-        console.log(longitude, latitude, height);
       });
     }, SuperMap3D.ScreenSpaceEventType.LEFT_CLICK);
   }
   leftClickShowPDF();
+
+  //1.固定显示弹框
+  var popup1 = new Popup({
+    viewer: viewer,
+    element: document.getElementById("test"),
+    show: true,
+    position: {
+      x: -2174570.394384789,
+      y: 4383620.096918275,
+      z: 4077282.9987836946
+    }
+  });
 }
 </script>
 <style>
@@ -326,5 +337,12 @@ function loadMap(SuperMap3D) {
 
   /* background: url("/src/assets/map/waterNormals.jpg"); */
   background-color: aqua;
+}
+
+.sm-div-graphic {
+  /* position:absolute,display: block;才能显示 */
+  position: absolute;
+  z-index: 9999;
+  display: block;
 }
 </style>
