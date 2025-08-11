@@ -3,11 +3,13 @@
 </template>
 <script setup lang="ts">
 import * as echarts from "echarts";
-import { onMounted } from "vue";
+import { onMounted, watch } from "vue";
+import { useMapStore } from "@/store/modules/mapStore";
 
 type EChartsOption = echarts.EChartsOption;
 
 var option: EChartsOption;
+const mapStore = useMapStore();
 
 option = {
   xAxis: {
@@ -29,9 +31,12 @@ onMounted(() => {
   var chartDom = document.getElementById("main")!;
   var myChart = echarts.init(chartDom);
   option && myChart.setOption(option);
-  window.addEventListener("resize", () => {
-    myChart.resize();
-  });
+  watch(
+    () => mapStore.resizeEchart,
+    () => {
+      myChart.resize();
+    }
+  );
 });
 </script>
 <style>

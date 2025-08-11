@@ -2,7 +2,12 @@
   <!-- 不能设置位置 -->
   <div id="SuperMap3DContainer" class="supermap3d-container" />
   <div id="infoBox" class="infoBoxStyle">
-    <echart />
+    <echart v-if="isEchart" />
+    <iframe
+      v-if="!isEchart"
+      src="src/assets/map/postgre.pdf"
+      style="width: 100%; height: 90%; margin-top: 10px; border: none"
+    />
   </div>
   <div id="test" class="sm-div-graphic">气泡测试</div>
 </template>
@@ -14,6 +19,7 @@ declare const SuperMap3D: any; //避免找不到名称“SuperMap3D”报错
 declare const Popup: any;
 import { getLayertree } from "@/api/supermap3dApi";
 import echart from "./echart.vue";
+import { useMapStore } from "@/store/modules/mapStore";
 
 var tiandituToken = "e2c4a8d8f10bd9aeec58f4dd88bb9bf2";
 
@@ -24,10 +30,13 @@ declare global {
     scene: any;
   }
 }
-
 onMounted(() => {
   loadMap(SuperMap3D);
 });
+
+var isEchart = ref(true);
+
+const mapStore = useMapStore();
 
 function loadMap(SuperMap3D) {
   var viewer = new SuperMap3D.Viewer("SuperMap3DContainer", {
@@ -265,7 +274,6 @@ function loadMap(SuperMap3D) {
     }
   );
 
-  var isPDF = true;
   function leftClickShowPDF() {
     var handler = new SuperMap3D.ScreenSpaceEventHandler(viewer.scene.canvas);
     handler.setInputAction(function (movement: any) {
@@ -276,16 +284,8 @@ function loadMap(SuperMap3D) {
       );
       const infoWindow = document.getElementById("infoBox");
       if (picked_obj != undefined && picked_obj.id.id === "dzx") {
-        if (isPDF) {
-          infoWindow.innerHTML = `
-          <iframe src="src/assets/map/postgre.pdf"
-                  style="width: 100%; height: 90%; border: none; margin-top: 10px;">
-          </iframe>
-        `;
-        } else {
-          // infoWindow.innerHTML = `
-          //   <echart />
-          // `;
+        if (isEchart.value) {
+          mapStore.resizeEchart = !mapStore.resizeEchart;
         }
 
         infoWindow.style.display = "block";
