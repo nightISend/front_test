@@ -4,11 +4,13 @@ defineOptions({
 });
 
 import cesiumMap from "./component/cesiumMap.vue";
+import superForCesium from "./component/superForCesium.vue";
 </script>
 
 <template>
   <div>
     <!-- 能传的 -->
-    <cesiumMap />
+    <!-- <cesiumMap /> -->
+    <superForCesium />
   </div>
 </template>
