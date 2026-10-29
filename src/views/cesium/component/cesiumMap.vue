@@ -47,6 +47,7 @@ import { click_draw_polygon } from "./drawPolygon";
 import { createPrimitive } from "./craeatePrimitive";
 import { addGeojson } from "./readData";
 import { addPoints } from "./points";
+import FlowParticles from "./FlowParticles";
 Ion.defaultAccessToken =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJkNWZkODE2Ny02ZmEzLTQ2NzYtOTI3Ny03NjU4ZGQ0OGNjZTIiLCJpZCI6MjQxOTQ5LCJpYXQiOjE3MjY0OTMxMjZ9.VczJoKbH4q7J4qNvR8nKzB-ea4wAFXIerWmr9dJYbgY";
 
@@ -571,6 +572,30 @@ function loadMap() {
 
   // snow(viewer);
   addGeojson(viewer, "src/assets/map/T0116堤防分段数据_4490.json");
+
+  const mockData = [];
+  // 模拟一条从左下到右上的河流
+  for (let i = 0; i < 50; i++) {
+    const lon = 110.0 + i * 0.001;
+    const lat = 30.0 + i * 0.001;
+    // 流向：朝东北方向
+    const dirX = 0.707;
+    const dirY = 0.707;
+    const speed = 1.0 + Math.random() * 0.5; // 随机速度
+    mockData.push({ lon, lat, dirX, dirY, speed });
+  }
+  function drawFlowParticles() {
+    const particleLayer = new FlowParticles(viewer, mockData, {
+      meteorLength: 120.0, // 定制长度
+      meteorWidth: 5.0, // 定制宽度
+      flowSpeed: 1.5, // 滚动速度
+      height: 1500.0, // 水位高度
+      meteorAlpha: 0.85 // 透明度
+    });
+  }
+  document
+    .getElementById("flowParticles")
+    .addEventListener("click", drawFlowParticles);
 }
 </script>
 
@@ -582,6 +607,7 @@ function loadMap() {
     <el-button id="water">水体与淹没</el-button>
     <el-button id="draw">绘制多边形</el-button>
     <el-button id="primitive">添加像元</el-button>
+    <el-button id="flowParticles">添加流动粒子</el-button>
     <div id="cesiumContainer" style="z-index: 1; width: 100%; height: 100%" />
     <div id="overview" class="overview" />
   </div>

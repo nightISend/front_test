@@ -10,7 +10,7 @@ import superForCesium from "./component/superForCesium.vue";
 <template>
   <div>
     <!-- 能传的 -->
-    <!-- <cesiumMap /> -->
-    <superForCesium />
+    <cesiumMap />
+    <!-- <superForCesium /> -->
   </div>
 </template>
