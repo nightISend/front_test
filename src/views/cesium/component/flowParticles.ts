@@ -19,13 +19,13 @@ export default class FlowParticles {
     this.pointsData = pointsData;
     this.primitive = null;
 
-    // 默认参数（与 jsonRiverWater.js 保持一致的参数命名）
+    // 默认参数(与 jsonRiverWater.js 保持一致的参数命名)
     this.params = {
       showMeteor: true, // 是否显示
-      meteorLength: 150.0, // 粒子长度（米）
-      meteorWidth: 30, // 粒子宽度（米）
+      meteorLength: 150.0, // 粒子长度(米)
+      meteorWidth: 30, // 粒子宽度(米)
       flowSpeed: 1.5, // 全局粒子滚动速度基数
-      tailLength: 0.99, // 粒子拖尾长度（0~1，越大拖尾越长）
+      tailLength: 0.99, // 粒子拖尾长度(0~1，越大拖尾越长)
       meteorAlpha: 0.8, // 粒子透明度
       height: 0.5 // 抬高高度，防止与地表 Z-Fighting
     };
@@ -46,18 +46,18 @@ export default class FlowParticles {
 
     const count = this.pointsData.length;
 
-    // 【核心 1】：预分配 TypedArray，精准分配固定内存，防止垃圾回收（GC）卡顿
-    const posArray = new Float64Array(count * 4 * 3); // 4 个顶点/点，3 个分量/顶点 (XYZ)
-    const stArray = new Float32Array(count * 4 * 2); // 2 个分量/顶点 (U, V)
-    const colArray = new Uint8Array(count * 4 * 4); // 4 个分量/顶点 (RGBA，A存随机相位)
-    const speedArray = new Float32Array(count * 4); // 1 个分量/顶点 (流速)
-    const idxArray = new Uint32Array(count * 6); // 6 个索引/点 (2个三角形)
+    // 【核心 1】：预分配 TypedArray，精准分配固定内存，防止垃圾回收(GC)卡顿
+    const posArray = new Float64Array(count * 4 * 3); // 每个点一个片元(四边形),片元的四个顶点有XYZ坐标
+    const stArray = new Float32Array(count * 4 * 2); // 每个片元的4个顶点的东和北分量(用于确定角度)
+    const colArray = new Uint8Array(count * 4 * 4); // 每个片元的4个顶点颜色 (RGBA，A存随机相位)
+    const speedArray = new Float32Array(count * 4); // 每个片元的4个顶点的流速
+    const idxArray = new Uint32Array(count * 6); // 组成片元的两个三角形的坐标的索引(每个三角形三个顶点)
 
     // 游标
-    let vIdx = 0;
+    let vIdx = 0; // 已经处理好的片元顶点的数量
     let iIdx = 0;
 
-    // 提取全局参数
+    // 提取全局参数,片元的长宽,以及相对地面的高度
     const L = this.params.meteorLength;
     const W = this.params.meteorWidth;
     const H = this.params.height;
@@ -68,18 +68,19 @@ export default class FlowParticles {
       new Cesium.Cartesian3(),
       new Cesium.Cartesian3(),
       new Cesium.Cartesian3()
-    ];
+    ]; // 片元四角坐标(笛卡尔坐标系)
     const worldPoint = new Cesium.Cartesian3();
-    const scratchCartesian = new Cesium.Cartesian3();
-    const enuMat = new Cesium.Matrix4();
-    const scratchColor = new Cesium.Color();
+    const scratchCartesian = new Cesium.Cartesian3(); //中心坐标(笛卡尔坐标系)
+    const enuMat = new Cesium.Matrix4(); //中心坐标的旋转矩阵(用于东北天坐标系(局部平面坐标系)和世界坐标系相互转换)
+    const scratchColor = new Cesium.Color(); //片元的颜色
 
     // 遍历外部传入的矢量点数据
     this.pointsData.forEach(pt => {
       // 数据格式要求：pt 包含 { lon, lat, dirX, dirY, speed, colorHex }
 
-      // 1. 构建局部 ENU（东北天）矩阵
+      // 1. 构建局部 ENU(东北天)矩阵
       // 注意：如果你的数据是弧度，请改用 Cesium.Cartesian3.fromRadians
+      // 先转世界坐标系(即以地心为原点的笛卡尔坐标系(就是在地心建了个XYZ坐标系))
       Cesium.Cartesian3.fromDegrees(
         pt.lon,
         pt.lat,
@@ -87,6 +88,7 @@ export default class FlowParticles {
         Cesium.Ellipsoid.WGS84,
         scratchCartesian
       );
+      // 然后生成以给出的世界坐标为原点的东北天坐标系(局部平面坐标系)的旋转矩阵
       Cesium.Transforms.eastNorthUpToFixedFrame(
         scratchCartesian,
         Cesium.Ellipsoid.WGS84,
@@ -96,7 +98,8 @@ export default class FlowParticles {
       // 2. 计算矩形的四个角在局部平面的位置
       const dirX = pt.dirX || 1.0;
       const dirY = pt.dirY || 0.0;
-      // 垂直流向的方向
+      // 把流向向量逆时针旋转 90 度，得到一个垂直于流向的向量,从而确定片元四角的坐标.
+      // 局部平面坐标系是固定的,但片元相对于是流向的外接矩形,矩形的一条轴与流向保持一直,因此其方向并不与坐标轴一致，需要进行偏移
       const localRightX = -dirY;
       const localRightY = dirX;
 
@@ -106,7 +109,8 @@ export default class FlowParticles {
       const headX = (dirX * L) / 2,
         headY = (dirY * L) / 2;
 
-      // 顶点 0,1 为尾部两侧，2,3 为头部两侧
+      // 顶点 0,1 为尾部两侧，2,3 为头部两侧.注意局部坐标系的XY轴方向是东和北,片元的四个顶点会跟随流向进行旋转,因此需要定位
+      // 注意得到的是局部平面坐标系(即东北天坐标系)的坐标
       localPoints[0].x = tailX - (localRightX * W) / 2;
       localPoints[0].y = tailY - (localRightY * W) / 2;
       localPoints[1].x = tailX + (localRightX * W) / 2;
@@ -117,21 +121,21 @@ export default class FlowParticles {
       localPoints[3].y = headY + (localRightY * W) / 2;
 
       // 3. 解析颜色
-      Cesium.Color.fromCssColorString(pt.colorHex || "#00ff78", scratchColor);
+      Cesium.Color.fromCssColorString(pt.colorHex || "#00ff78", scratchColor); //通过HEX代码生成cesium的颜色对象给scratchColor
       const cR = Math.round(scratchColor.red * 255);
       const cG = Math.round(scratchColor.green * 255);
       const cB = Math.round(scratchColor.blue * 255);
 
-      // 【核心 3】：随机相位（0~255），让每个粒子错开，避免同步闪烁
+      // 【核心 3】：随机相位(0~255)，让每个粒子错开，避免同步闪烁
       const randomPhase = Math.floor(Math.random() * 256);
 
       const baseV = vIdx;
 
       // 4. 写入 TypedArray
       for (let i = 0; i < 4; i++) {
-        localPoints[i].z = 0.0; // ENU 平面上的 Z 轴（不需要抬升，因为 ENU 原点已经抬升了 H）
+        localPoints[i].z = 0.0; // ENU 平面上的 Z 轴(不需要抬升，因为 ENU 原点已经抬升了 H)
 
-        // 局部坐标 -> 世界坐标
+        // 局部平面坐标 -> 世界坐标,通过矩阵把东北天坐标转换成笛卡尔坐标系坐标(即世界坐标系)
         Cesium.Matrix4.multiplyByPoint(enuMat, localPoints[i], worldPoint);
 
         // position (3个分量)
@@ -140,7 +144,7 @@ export default class FlowParticles {
         posArray[pIdx + 1] = worldPoint.y;
         posArray[pIdx + 2] = worldPoint.z;
 
-        // st (2个分量：U=流向 0尾/1头，V=侧向 0/1)
+        // st用来判断这是粒子头部还是尾部、左边还是右边(2个分量：U=流向 0尾/1头，V=侧向 0/1 左/右)
         const sIdx = vIdx * 2;
         stArray[sIdx] = i < 2 ? 0.0 : 1.0;
         stArray[sIdx + 1] = i % 2 === 0 ? 0.0 : 1.0;
@@ -158,7 +162,7 @@ export default class FlowParticles {
         vIdx++;
       }
 
-      // 索引 (两个三角形)
+      // 索引 (两个三角形顶点坐标在posarray中的索引(注意索引表述的顶点的顺序,一个索引对应posarray中3个元素(xyz))
       idxArray[iIdx++] = baseV + 0;
       idxArray[iIdx++] = baseV + 1;
       idxArray[iIdx++] = baseV + 2;
@@ -168,13 +172,15 @@ export default class FlowParticles {
     });
 
     // ---- 组装 Geometry ----
-    this._boundingSphere = Cesium.BoundingSphere.fromVertices(posArray);
+    this._boundingSphere = Cesium.BoundingSphere.fromVertices(
+      Array.from(posArray) //浮点数组转number数组
+    ); // 生成外接球体,可以作为对象缩放
     const geometry = new Cesium.Geometry({
       attributes: {
         position: new Cesium.GeometryAttribute({
           componentDatatype: Cesium.ComponentDatatype.DOUBLE,
           componentsPerAttribute: 3,
-          values: posArray
+          values: posArray //片元顶点的XZY坐标,一维数组
         }),
         st: new Cesium.GeometryAttribute({
           componentDatatype: Cesium.ComponentDatatype.FLOAT,
@@ -194,10 +200,10 @@ export default class FlowParticles {
           values: speedArray
         })
       },
-      indices: idxArray,
-      primitiveType: Cesium.PrimitiveType.TRIANGLES,
+      indices: idxArray, // position数组里构成primitive的顶点的索引
+      primitiveType: Cesium.PrimitiveType.TRIANGLES, // 设置primitive的类型为三角形
       // 这里的包围球可以用所有点来计算，也可以传一个较大的球体
-      boundingSphere: Cesium.BoundingSphere.fromVertices(Array.from(posArray))
+      boundingSphere: this._boundingSphere
     });
 
     // ---- 组装 Primitive 和 Shader ----
@@ -209,45 +215,62 @@ export default class FlowParticles {
           depthTest: { enabled: true },
           cull: { enabled: false }
         },
+        // 顶点着色器,每个顶点一次(约 4×N 次),把 CPU 算好的世界坐标转成屏幕坐标，并把 st、color、speed 这些每个顶点独有的数据传给片元着色器
         vertexShaderSource: `
-                    in vec3 position3DHigh;
-                    in vec3 position3DLow;
-                    in vec2 st;
-                    in vec4 color;
-                    in float speed;
-                    in float batchId; // ✨ 补上这一行，消除报错
 
+                    //输入变量
+                    in vec3 position3DHigh; //高精度坐标
+                    in vec3 position3DLow; //低精度坐标,避免 GPU float 精度不够导致抖动
+                    in vec2 st; //Geometry 的 st 属性,当前顶点的 UV st.x = 0(尾) / 1(头),st.y = 0(左) / 1(右)
+                    in vec4 color; //颜色
+                    in float speed; //速度
+                    in float batchId; // Cesium 内部需要
+
+                    // 输出结果
                     out vec2 v_st;
                     out vec4 v_color;
                     out float v_speed;
 
                     void main() {
-                        // 高/低精度世界坐标还原，防抖动
+                        // Cesium 内置函数，等价于 czm_translateRelativeToEye(position3DHigh, position3DLow)
+                        // 它把高/低精度两段拼成一个相对相机的坐标（不是绝对 ECEF，而是“相对眼睛”），这样远距离也不会抖
                         vec4 p = czm_computePosition();
+                        // czm_modelViewProjectionRelativeToEye 是 Cesium 注入的 MVP 矩阵（相对眼睛版）。乘完得到裁剪空间坐标，GPU 据此把顶点画到屏幕上。
                         gl_Position = czm_modelViewProjectionRelativeToEye * p;
+                        
+                        //把顶点属性透传给片元。注意 v_color 是 vec4,A 通道就是随机相位,把随机数藏在颜色里，省一个 attribute 的显存。
                         v_st = st;
                         v_color = color;
                         v_speed = speed;
                     }
                 `,
         fragmentShaderSource: `
+                    // 顶点着色器的输出作为输入
                     in vec2 v_st;
                     in vec4 v_color;
                     in float v_speed;
 
                     void main() {
-                        vec3 baseCol = v_color.rgb;
-                        float phase = v_color.a; // A通道就是随机相位
+                        vec3 baseCol = v_color.rgb; // 取颜色
+                        float phase = v_color.a; // A通道(透明度)就是随机相位
 
-                        // 时间控制：0.015 是每帧推进量
+                        // 计算“图案坐标” x(最关键的一行)
+                        // czm_frameNumber是帧号,0.015是每帧的推荐量60fps下约等于 0.9/秒。
+                        // *v_speed,流速越大移动得越快, phase相位(初始位置)
+                        // - v_st.x 减去顶点在矩形内的纵向位置。这一步把“整个矩形”变成“一个移动的坐标系”。
+                        // fract取小数部分,结果永远在 [0, 1)，实现无限循环。
                         float x = fract(float(czm_frameNumber) * 0.015 * v_speed + phase - v_st.x);
+                        // v_st.y 从 0 到 1（左到右），映射到 -1 ~ +1，这样矩形中心线是 y=0，方便后面用 abs(y) 算“离中心线有多远”。
                         float y = (v_st.y - 0.5) * 2.0; // 横向 [-1, 1]
 
                         // 形状参数
-                        float headOffset = 0.06;  // 头部圆半径
-                        float tailLen = ${this.params.tailLength.toFixed(2)}; // 拖尾长度（构建时写入）
+                        // x < headOffset：头部圆
+                        // headOffset < x < headOffset + tailLen：拖尾
+                        // 其余：空白（什么都不画）
+                        float headOffset = 0.06;  // 头部圆形占图案的 6%
+                        float tailLen = ${this.params.tailLength.toFixed(2)}; // 拖尾长度(构建时写入)
 
-                        float dx = x - headOffset;
+                        float dx = x - headOffset; // 相对头部的坐标
                         float shape = 0.0;
                         float core = 0.0;
 
@@ -281,7 +304,7 @@ export default class FlowParticles {
 
     this.viewer.scene.primitives.add(this.primitive);
     this.viewer.camera.flyToBoundingSphere(this._boundingSphere, {
-      duration: 2.0, // 飞行时间（秒）
+      duration: 2.0, // 飞行时间(秒)
       offset: new Cesium.HeadingPitchRange(
         Cesium.Math.toRadians(0), // 朝向
         Cesium.Math.toRadians(-45), // 俯仰角
@@ -291,7 +314,7 @@ export default class FlowParticles {
   }
 
   /**
-   * 更新运行时参数（无需重建几何体）
+   * 更新运行时参数(无需重建几何体)
    */
   updateParams(newParams) {
     if (newParams.showMeteor !== undefined && this.primitive) {

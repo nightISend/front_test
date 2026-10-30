@@ -565,6 +565,7 @@ function loadMap() {
   function primitive() {
     createPrimitive(viewer);
   }
+  primitive();
   function addMorePoints() {
     return addPoints(viewer);
   }
