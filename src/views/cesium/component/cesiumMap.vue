@@ -48,11 +48,17 @@ import { createPrimitive } from "./craeatePrimitive";
 import { addGeojson } from "./readData";
 import { addPoints } from "./points";
 import FlowParticles from "./FlowParticles";
+import GeoTerrainProvider from "./GeoTerrainProvider";
+
 Ion.defaultAccessToken =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJkNWZkODE2Ny02ZmEzLTQ2NzYtOTI3Ny03NjU4ZGQ0OGNjZTIiLCJpZCI6MjQxOTQ5LCJpYXQiOjE3MjY0OTMxMjZ9.VczJoKbH4q7J4qNvR8nKzB-ea4wAFXIerWmr9dJYbgY";
 
 function loadMap() {
   var tk = "e2c4a8d8f10bd9aeec58f4dd88bb9bf2";
+  // 服务域名
+  var tdtUrl = "https://t{s}.tianditu.gov.cn/";
+  // 服务负载子域
+  var subdomains = ["0", "1", "2", "3", "4", "5", "6", "7"];
 
   //天地图矢量底图
   var tianDiTuVector = new WebMapTileServiceImageryProvider({
@@ -112,6 +118,11 @@ function loadMap() {
     navigationHelpButton: false,
     infoBox: false
     // skyBox: new SkyBox({})天空盒，用图片替换天空
+  });
+  // 天地图加载插件
+  viewer.terrainProvider = new GeoTerrainProvider({
+    url: `https://t{s}.tianditu.gov.cn/mapservice/swdx?T=elv_c&x={x}&y={y}&l={z}&tk=${tk}`,
+    subdomains: ["0", "1", "2", "3", "4", "5", "6", "7"]
   });
 
   /* 新建一个viewer做鹰眼图,好处是比较流畅,但需要同一图层加载两次 */
@@ -565,7 +576,7 @@ function loadMap() {
   function primitive() {
     createPrimitive(viewer);
   }
-  primitive();
+  // primitive();
   function addMorePoints() {
     return addPoints(viewer);
   }
@@ -574,29 +585,69 @@ function loadMap() {
   // snow(viewer);
   addGeojson(viewer, "src/assets/map/T0116堤防分段数据_4490.json");
 
-  const mockData = [];
-  // 模拟一条从左下到右上的河流
-  for (let i = 0; i < 50; i++) {
-    const lon = 110.0 + i * 0.001;
-    const lat = 30.0 + i * 0.001;
-    // 流向：朝东北方向
-    const dirX = 0.707;
-    const dirY = 0.707;
-    const speed = 1.0 + Math.random() * 0.5; // 随机速度
-    mockData.push({ lon, lat, dirX, dirY, speed });
-  }
-  function drawFlowParticles() {
-    const particleLayer = new FlowParticles(viewer, mockData, {
-      meteorLength: 120.0, // 定制长度
-      meteorWidth: 5.0, // 定制宽度
-      flowSpeed: 1.5, // 滚动速度
-      height: 1500.0, // 水位高度
-      meteorAlpha: 0.85 // 透明度
+  async function loadAndProcessData() {
+    // 1. 获取原始 GeoJSON
+    const response = await fetch("src/assets/map/南极冰川流速.json");
+    const geojson = await response.json();
+
+    // 2. 提取并转换为 FlowParticles 需要的格式
+    const particleData = geojson.features.map(feature => {
+      const lon = feature.geometry.coordinates[0];
+      const lat = feature.geometry.coordinates[1];
+
+      const vx = feature.properties.vx;
+      const vy = feature.properties.vy;
+
+      // 经度转弧度
+      const L_rad = (lon * Math.PI) / 180;
+
+      // 应用南半球旋转公式
+      const E = vx * Math.cos(L_rad) - vy * Math.sin(L_rad);
+      const N = vx * Math.sin(L_rad) + vy * Math.cos(L_rad);
+
+      // 计算速度大小与方向
+      const speed = Math.sqrt(E * E + N * N);
+      const dirX = speed > 1e-6 ? E / speed : 1.0;
+      const dirY = speed > 1e-6 ? N / speed : 0.0;
+
+      return {
+        lon: lon,
+        lat: lat,
+        dirX: dirX,
+        dirY: dirY,
+        speed: speed,
+        // 可根据速度大小简单映射颜色，或者直接传速度进去在着色器里算
+        colorHex: speed > 1000 ? "#ff1e00" : speed > 200 ? "#ffb400" : "#00ff78"
+      };
     });
+
+    console.log(`已成功转换 ${particleData.length} 个数据点`);
+
+    // 3. 实例化粒子系统
+    // 注意：南极的冰川数据可能需要较大的粒子尺寸才能看清楚
+    const particleLayer = new FlowParticles(viewer, particleData, {
+      // ---- 1. 几何尺寸（根据 11km 分辨率标定）----
+      meteorLength: 20000.0, // 粒子长度 20km，约等于 2 个数据点间距
+      meteorWidth: 3000.0, // 粒子宽度 3km，保证屏幕上可见（约 1 像素以上）
+
+      // ---- 2. 动画速度（必须大幅放缓）----
+      // 原值 1.5 是给小河道的；南极视距大，每秒推进量必须降下来
+      flowSpeed: 0.05, // 建议范围 0.02 ~ 0.1，视实际效果微调
+
+      // ---- 3. 形状参数 ----
+      tailLength: 0.8, // 原 0.99 拖尾太细，改为 0.7~0.85 更粗壮
+      meteorAlpha: 0.85, // 保持较高不透明度，避免远处模糊
+
+      // ---- 4. 高程（极其关键）----
+      // 南极冰盖平均高程约 2500m，如果 height=0 会被地形埋掉
+      height: 2800.0 // 建议 2500 ~ 3000，可先在 Cesium 里用坐标测一个点的高程确认
+    });
+
+    return particleLayer;
   }
   document
     .getElementById("flowParticles")
-    .addEventListener("click", drawFlowParticles);
+    .addEventListener("click", loadAndProcessData);
 }
 </script>
 
