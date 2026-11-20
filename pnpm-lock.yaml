@@ -65,6 +65,9 @@ importers:
       ol:
         specifier: ^10.1.0
         version: 10.1.0
+      pako:
+        specifier: ^2.1.0
+        version: 2.1.0
       path:
         specifier: ^0.12.7
         version: 0.12.7
