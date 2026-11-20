@@ -11,13 +11,14 @@
     <title>pure-admin-thin</title>
     <link rel="icon" href="/favicon.ico" />
     <script>
-      window.process = {};
+      // 部分浏览器依赖在检测到 process 后会读取 process.env。
+      window.process = { env: {} };
     </script>
     <script type="text/javascript" src="./SuperMap3D/SuperMap3D.js"></script>
     <link href="./SuperMap3D/Widgets/widgets.css" rel="stylesheet" />
     <script type="text/javascript" src="./js/bubble/popup.js"></script>
     <script type="text/javascript" src="./Cesium/Cesium.js"></script>
-    <link href="./Cesium/Widgets/widgets.css" rel="stylesheet">
+    <link href="./Cesium/Widgets/widgets.css" rel="stylesheet" />
   </head>
 
   <body>

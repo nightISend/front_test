@@ -47,8 +47,9 @@ import { click_draw_polygon } from "./drawPolygon";
 import { createPrimitive } from "./craeatePrimitive";
 import { addGeojson } from "./readData";
 import { addPoints } from "./points";
-import FlowParticles from "./FlowParticles";
-import GeoTerrainProvider from "./GeoTerrainProvider";
+import FlowParticles from "./flowParticles";
+import GeoJSONTerrainProvider from "./GeoJSONTerrainProvider";
+import surveyGeoJSONText from "@/assets/map/测高点_4326.geojson?raw";
 
 Ion.defaultAccessToken =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJkNWZkODE2Ny02ZmEzLTQ2NzYtOTI3Ny03NjU4ZGQ0OGNjZTIiLCJpZCI6MjQxOTQ5LCJpYXQiOjE3MjY0OTMxMjZ9.VczJoKbH4q7J4qNvR8nKzB-ea4wAFXIerWmr9dJYbgY";
@@ -104,26 +105,25 @@ function loadMap() {
     tileMatrixSetID: "GoogleMapsCompatible"
   });
 
-  // Initialize the Cesium Viewer in the HTML element with the `cesiumContainer` ID.
+  // Vite 读取本地 GeoJSON 文本，提供器用 Elevation 字段生成测区地形。
+  const surveyTerrain = GeoJSONTerrainProvider.fromGeoJSON(
+    JSON.parse(surveyGeoJSONText),
+    { heightProperty: "Elevation" }
+  );
+
   const viewer = new Viewer("cesiumContainer", {
-    /* 添加cesium自带的DEM */
-    terrain: Terrain.fromWorldTerrain({
-      /* 添加光照和水文效果 */
-      requestVertexNormals: true,
-      requestWaterMask: true
-    }),
-    /* 添加DEM瓦片服务,api用不对 */
-    // terrainProvider: new CesiumTerrainProvider(),
+    terrainProvider: surveyTerrain,
     timeline: false,
     navigationHelpButton: false,
     infoBox: false
     // skyBox: new SkyBox({})天空盒，用图片替换天空
   });
-  // 天地图加载插件
-  viewer.terrainProvider = new GeoTerrainProvider({
-    url: `https://t{s}.tianditu.gov.cn/mapservice/swdx?T=elv_c&x={x}&y={y}&l={z}&tk=${tk}`,
-    subdomains: ["0", "1", "2", "3", "4", "5", "6", "7"]
-  });
+
+  // 天地图地形加载插件
+  // viewer.terrainProvider = new GeoTerrainProvider({
+  //   url: `https://t{s}.tianditu.gov.cn/mapservice/swdx?T=elv_c&x={x}&y={y}&l={z}&tk=${tk}`,
+  //   subdomains: ["0", "1", "2", "3", "4", "5", "6", "7"]
+  // });
 
   /* 新建一个viewer做鹰眼图,好处是比较流畅,但需要同一图层加载两次 */
   const viewerForOverView = new Viewer("overview", {
@@ -189,20 +189,14 @@ function loadMap() {
   // 视角不转到地下
   var scene = viewer.scene;
   scene.globe.depthTestAgainstTerrain = true;
-  // 初始化摄影机位置
+  // 根据测点范围定位到测区中心，初始相机高度设在本测区最高点上方。
+  const surveyCenter = Rectangle.center(surveyTerrain.rectangle);
   viewer.camera.setView({
-    destination: Cartesian3.fromDegrees(100, 30, 2000000),
-    /* 默认好用 */
-    orientation: {
-      /*
-        Roll:绕X旋转
-        Pitch:绕Y旋转
-        Heading:绕Z轴旋转
-      */
-      // heading: CesiumMath.toRadians(90.0)
-      // pitch: CesiumMath.toRadians(60.0)
-      // roll: CesiumMath.toRadians(90)
-    }
+    destination: Cartesian3.fromRadians(
+      surveyCenter.longitude,
+      surveyCenter.latitude,
+      1000
+    )
   });
 
   var ifAddLayer = true;
@@ -262,7 +256,7 @@ function loadMap() {
       // 显示在距相机的距离处的属性，多少区间内是可以显示的
       // distanceDisplayCondition: new DistanceDisplayCondition(0, 1500),
       // 是否显示
-      show: true
+      show: false
     }
   });
 
