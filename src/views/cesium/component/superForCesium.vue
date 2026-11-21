@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, watch, ref } from "vue";
-declare const Cesium: any; //避免找不到名称“SuperMap3D”报错
-// (window as any).CESIUM_BASE_URL = "public/Cesium/Cesium.js";
+import * as Cesium from "cesium";
+import "cesium/Build/Cesium/Widgets/widgets.css";
 Cesium.Ion.defaultAccessToken =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJkNWZkODE2Ny02ZmEzLTQ2NzYtOTI3Ny03NjU4ZGQ0OGNjZTIiLCJpZCI6MjQxOTQ5LCJpYXQiOjE3MjY0OTMxMjZ9.VczJoKbH4q7J4qNvR8nKzB-ea4wAFXIerWmr9dJYbgY";
 
@@ -466,13 +466,13 @@ function loadMap() {
     } else if (e.key == "d") {
       viewer.camera.moveRight(distance);
     } else if (e.key == "q") {
-      viewer.camera.lookLeft(Cesium.CesiumMath.toRadians(0.1));
+      viewer.camera.lookLeft(Cesium.Math.toRadians(0.1));
     } else if (e.key == "e") {
-      viewer.camera.lookRight(Cesium.CesiumMath.toRadians(0.1));
+      viewer.camera.lookRight(Cesium.Math.toRadians(0.1));
     } else if (e.key == "z") {
-      viewer.camera.lookUp(Cesium.CesiumMath.toRadians(0.1));
+      viewer.camera.lookUp(Cesium.Math.toRadians(0.1));
     } else if (e.key == "c") {
-      viewer.camera.lookDown(Cesium.CesiumMath.toRadians(0.1));
+      viewer.camera.lookDown(Cesium.Math.toRadians(0.1));
     }
   });
 
