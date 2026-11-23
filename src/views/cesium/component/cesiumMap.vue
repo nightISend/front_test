@@ -48,7 +48,7 @@ import { createPrimitive } from "./craeatePrimitive";
 import { addGeojson } from "./readData";
 import { addPoints } from "./points";
 import FlowParticles from "./flowParticles";
-import GeoJSONTerrainProvider from "./GeoJSONTerrainProvider";
+import GeoJSONQuantizedMeshTerrainProvider from "./GeoJSONQuantizedMeshTerrainProvider";
 import surveyGeoJSONText from "@/assets/map/测高点_4326.geojson?raw";
 
 Ion.defaultAccessToken =
@@ -105,8 +105,8 @@ function loadMap() {
     tileMatrixSetID: "GoogleMapsCompatible"
   });
 
-  // Vite 读取本地 GeoJSON 文本，提供器用 Elevation 字段生成测区地形。
-  const surveyTerrain = GeoJSONTerrainProvider.fromGeoJSON(
+  // 使用本地 GeoJSON 的 Elevation 字段生成测区量化三角网格。
+  const surveyTerrain = GeoJSONQuantizedMeshTerrainProvider.fromGeoJSON(
     JSON.parse(surveyGeoJSONText),
     { heightProperty: "Elevation" }
   );

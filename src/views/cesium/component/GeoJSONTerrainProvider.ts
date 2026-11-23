@@ -101,6 +101,7 @@ export default class GeoJSONTerrainProvider extends CustomHeightmapTerrainProvid
   );
 
   private readonly surveyRectangle: Rectangle; // 测点包围矩形，边界使用弧度。
+  private readonly surveyPositions: readonly Cartographic[];
   private readonly tileSize: number;
   private readonly firstSurfaceLevel: number; // 首次使用实测表面的层级，更粗的层级使用背景。
   private readonly outsideHeight: number;
@@ -174,9 +175,9 @@ export default class GeoJSONTerrainProvider extends CustomHeightmapTerrainProvid
         Cartographic.fromDegrees(normalizedLongitude, latitude, height)
       );
     }
-    // 注意positions是笛卡尔坐标系下的坐标高程数组
     const positions = [...uniquePositions.values()];
     if (positions.length < 3) throw new Error("至少需要 3 个不同位置的测高点");
+    this.surveyPositions = positions;
 
     // Cartographic 内部使用弧度。这里的包围矩形用于相机定位和登记瓦片，
     // 矩形内未被三角网覆盖的空白区域仍然使用背景高程。
@@ -257,6 +258,27 @@ export default class GeoJSONTerrainProvider extends CustomHeightmapTerrainProvid
     );
   }
 
+  /** 测区瓦片达到细节层级后才使用实测表面。 */
+  hasSurveySurface(x: number, y: number, level: number): boolean {
+    return (
+      level >= this.firstSurfaceLevel && this.getTileDataAvailable(x, y, level)
+    );
+  }
+
+  /** 经度与纬度用弧度。返回米制高程，三角网外使用背景高程。 */
+  sampleSurveyHeight(longitude: number, latitude: number): number {
+    const x = this.projectLongitude(longitude);
+    const y = (latitude - this.surveyRectangle.south) * METERS_PER_RADIAN;
+    return this.interpolate(x, y) ?? this.outsideHeight;
+  }
+
+  /** 返回指定经纬度矩形内的测点副本，供量化瓦片保留实测顶点。 */
+  getSurveyPositions(rectangle: Rectangle): Cartographic[] {
+    return this.surveyPositions
+      .filter(position => Rectangle.contains(rectangle, position))
+      .map(position => Cartographic.clone(position));
+  }
+
   /**
    * Cesium 请求瓦片时的入口。x 向东、y 向南递增，level 表示细节层级。
    * 高程取自内存中的三角网，返回 Promise 以符合 Cesium 提供器接口。
@@ -271,10 +293,9 @@ export default class GeoJSONTerrainProvider extends CustomHeightmapTerrainProvid
       throw new RangeError(`测高点地形的最大层级为 ${this.maxLevel}`);
     }
     // 达到采样层级且瓦片已登记时，对它的经纬度矩形逐点插值；其他情况复用背景网格。
-    const buffer =
-      level >= this.firstSurfaceLevel && this.getTileDataAvailable(x, y, level)
-        ? this.sampleTile(this.tilingScheme.tileXYToRectangle(x, y, level))
-        : this.flatBuffer;
+    const buffer = this.hasSurveySurface(x, y, level)
+      ? this.sampleTile(this.tilingScheme.tileXYToRectangle(x, y, level))
+      : this.flatBuffer;
     // Float32Array 的每个元素已经是米制高程，Cesium 可按默认比例和偏移直接读取。
     return new HeightmapTerrainData({
       buffer,
