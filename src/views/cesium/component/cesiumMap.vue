@@ -10,9 +10,9 @@ onMounted(() => {
 import {
   Cartesian3,
   ClockRange,
+  ImageryLayer,
   Ion,
   Math as CesiumMath,
-  Terrain,
   Viewer,
   WebMapTileServiceImageryProvider,
   Color,
@@ -56,54 +56,21 @@ Ion.defaultAccessToken =
 
 function loadMap() {
   var tk = "e2c4a8d8f10bd9aeec58f4dd88bb9bf2";
-  // 服务域名
-  var tdtUrl = "https://t{s}.tianditu.gov.cn/";
-  // 服务负载子域
-  var subdomains = ["0", "1", "2", "3", "4", "5", "6", "7"];
-
-  //天地图矢量底图
-  var tianDiTuVector = new WebMapTileServiceImageryProvider({
-    url:
-      "http://t0.tianditu.com/vec_w/wmts?service=wmts&request=GetTile&version=1.0.0&LAYER=vec&tileMatrixSet=w&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&style=default&format=tiles&tk=" +
-      tk,
-    layer: "tdtVecBasicLayer",
-    style: "default",
-    format: "image/jpeg",
-    tileMatrixSetID: "GoogleMapsCompatible"
-  });
-
-  //天地图矢量注记
-  var tianDiTuVectorAnnotation = new WebMapTileServiceImageryProvider({
-    url:
-      "http://t0.tianditu.com/cva_w/wmts?service=wmts&request=GetTile&version=1.0.0&LAYER=cva&tileMatrixSet=w&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&style=default.jpg&tk=" +
-      tk,
-    layer: "tdtAnnoLayer",
-    style: "default",
-    format: "image/jpeg",
-    tileMatrixSetID: "GoogleMapsCompatible"
-  });
-
-  //天地图影像底图
-  var tianDiTuSpatial = new WebMapTileServiceImageryProvider({
-    url:
-      "http://t0.tianditu.com/img_w/wmts?service=wmts&request=GetTile&version=1.0.0&LAYER=img&tileMatrixSet=w&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&style=default&format=tiles&tk=" +
-      tk,
-    layer: "tdtBasicLayer",
-    style: "default",
-    format: "image/jpeg",
-    tileMatrixSetID: "GoogleMapsCompatible"
-  });
-
-  //天地图影像注记
-  const tianDiTuSpatialAnnotation = new WebMapTileServiceImageryProvider({
-    url:
-      "http://t0.tianditu.com/cia_w/wmts?service=wmts&request=GetTile&version=1.0.0&LAYER=cia&tileMatrixSet=w&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&style=default.jpg&tk=" +
-      tk,
-    layer: "tdtAnnoLayer",
-    style: "default",
-    format: "image/jpeg",
-    tileMatrixSetID: "GoogleMapsCompatible"
-  });
+  const createTianDiTuBaseLayer = () =>
+    new ImageryLayer(
+      new WebMapTileServiceImageryProvider({
+        url:
+          "https://t{s}.tianditu.gov.cn/img_w/wmts?" +
+          "service=WMTS&request=GetTile&version=1.0.0&LAYER=img&style=default&format=tiles" +
+          "&tileMatrixSet={TileMatrixSet}&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&tk=" +
+          tk,
+        layer: "img",
+        style: "default",
+        format: "tiles",
+        tileMatrixSetID: "w",
+        subdomains: "01234567"
+      })
+    );
 
   // 使用本地 GeoJSON 的 Elevation 字段生成测区量化三角网格。
   const surveyTerrain = GeoJSONQuantizedMeshTerrainProvider.fromGeoJSON(
@@ -112,6 +79,8 @@ function loadMap() {
   );
 
   const viewer = new Viewer("cesiumContainer", {
+    baseLayerPicker: false,
+    baseLayer: createTianDiTuBaseLayer(),
     terrainProvider: surveyTerrain,
     timeline: false,
     navigationHelpButton: false,
@@ -127,11 +96,6 @@ function loadMap() {
 
   /* 新建一个viewer做鹰眼图,好处是比较流畅,但需要同一图层加载两次 */
   const viewerForOverView = new Viewer("overview", {
-    terrain: Terrain.fromWorldTerrain({
-      requestVertexNormals: true,
-      requestWaterMask: true
-    }),
-    // terrainProvider: new CesiumTerrainProvider(),
     timeline: false,
     navigationHelpButton: false,
     infoBox: false,
@@ -142,6 +106,7 @@ function loadMap() {
     geocoder: false,
     sceneModePicker: false,
     baseLayerPicker: false,
+    baseLayer: createTianDiTuBaseLayer(),
     // 左下角控制时间的组件
     animation: false
   });
@@ -199,24 +164,6 @@ function loadMap() {
     )
   });
 
-  var ifAddLayer = true;
-  document.getElementById("addLayer").addEventListener("click", function () {
-    if (ifAddLayer == true) {
-      /* addImageryProvider会返回ImageryLayer对象，可以调整ImageryLayer的样式 */
-      let imagery = viewer.imageryLayers.addImageryProvider(tianDiTuSpatial);
-      imagery.hue = 3; // 图层色调
-      imagery.contrast = -1.2; // 图层对比度
-      /* 设置地图透明度 */
-      viewer.imageryLayers.addImageryProvider(tianDiTuVector).alpha = 0.5;
-      console.log("添加地图");
-      ifAddLayer = false;
-    } else {
-      //WebMapTileServiceImageryProvider类型的图层不能直接移除
-      var firstLayer = viewer.imageryLayers.get(1);
-      viewer.imageryLayers.remove(firstLayer, false);
-      ifAddLayer = true;
-    }
-  });
   //前往杭州
   document.getElementById("flyto").addEventListener("click", () => {
     /* 两种方法都可以实现视角变换，flyto有移动效果，setview直接瞬移 */
@@ -647,7 +594,6 @@ function loadMap() {
 
 <template>
   <div style="position: relative; width: 100%; height: 100%">
-    <el-button id="addLayer">添加图层</el-button>
     <el-button id="addAnimation">添加动画</el-button>
     <el-button id="flyto">移动到杭州</el-button>
     <el-button id="water">水体与淹没</el-button>
